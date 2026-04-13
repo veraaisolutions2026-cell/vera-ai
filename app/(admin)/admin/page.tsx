@@ -1,8 +1,12 @@
-import { Bot, MessageSquare, Users } from "lucide-react"
-import { getAdminStats } from "@/lib/db/admin"
+import { Bot, CreditCard, MessageSquare, Users } from "lucide-react"
+import { OverviewCharts } from "./components/overview-charts"
+import { getAdminStats, getOverviewChartData } from "@/lib/db/admin"
 
 export default async function AdminPage() {
-  const stats = await getAdminStats()
+  const [stats, overviewChartData] = await Promise.all([
+    getAdminStats(),
+    getOverviewChartData(7),
+  ])
 
   const cards = [
     {
@@ -20,10 +24,15 @@ export default async function AdminPage() {
       value: stats.totalChats,
       icon: MessageSquare,
     },
+    {
+      label: "Active Subscriptions",
+      value: stats.totalSubscriptions,
+      icon: CreditCard,
+    },
   ]
 
   return (
-    <div className="flex flex-col gap-8 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:gap-8 lg:p-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -31,7 +40,7 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map(({ label, value, icon: Icon }) => (
           <div
             key={label}
@@ -47,6 +56,8 @@ export default async function AdminPage() {
           </div>
         ))}
       </div>
+
+      <OverviewCharts data={overviewChartData} />
     </div>
   )
 }

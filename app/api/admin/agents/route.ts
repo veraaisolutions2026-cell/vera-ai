@@ -10,7 +10,7 @@ const agentSchema = z.object({
   system_prompt: z.string().min(1),
   base_model: z.string().min(1),
   category: z.string().nullable().optional(),
-  is_builtin: z.boolean().optional().default(false),
+  is_builtin: z.boolean().optional().default(true),
   user_id: z.string().nullable().optional().default(null),
 })
 
@@ -58,7 +58,8 @@ export async function POST(request: Request) {
     ...parsed.data,
     description: parsed.data.description ?? null,
     category: parsed.data.category ?? null,
-    user_id: parsed.data.user_id ?? null,
+    is_builtin: true,
+    user_id: null,
   })
   if (!agent) {
     return NextResponse.json(

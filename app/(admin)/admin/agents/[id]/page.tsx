@@ -13,11 +13,13 @@ export default async function EditAgentPage({
   if (!agent) notFound()
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Edit agent</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Edit built-in agent
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Update agent details and system prompt.
+          Update system agent details and prompt available platform-wide.
         </p>
       </div>
       <AgentForm mode="edit" agent={agent} />

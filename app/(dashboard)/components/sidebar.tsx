@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { VeraLogo } from "@/components/ui/vera-logo"
 import { useState, useEffect, useTransition, useRef } from "react"
+import { useFormStatus } from "react-dom"
 import {
   Bot,
   CreditCard,
@@ -48,6 +49,7 @@ import {
 } from "@/components/animate-ui/components/radix/tooltip"
 import { signOut } from "@/actions/auth-actions"
 import { removeChatAction, renameChat } from "@/actions/chat-actions"
+import { Loader } from "@/components/ai/loader"
 import { useChatTitleState } from "@/hooks/use-chat-title-state"
 import { cn } from "@/lib/utils"
 import type { Chat, UserData } from "@/types/database"
@@ -63,9 +65,29 @@ type Props = {
 const secondaryNav = [
   { href: "/dashboard/chat/manage", label: "Manage Chats", icon: FolderOpen },
   { href: "/dashboard/agents", label: "Agents", icon: Bot },
+  { href: "/dashboard/usage", label: "Usage", icon: FolderOpen },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ]
+
+function SignOutMenuButton() {
+  const { pending } = useFormStatus()
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? (
+        <Loader size={14} className="text-destructive" />
+      ) : (
+        <LogOut className="h-4 w-4 text-destructive" />
+      )}
+      <span>{pending ? "Logging out..." : "Log out"}</span>
+    </button>
+  )
+}
 
 function groupChatsByDate(chats: Chat[]) {
   const now = new Date()
@@ -500,12 +522,10 @@ export function Sidebar({
               {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => signOut()}
-              className="gap-2 text-destructive focus:text-destructive"
-            >
-              <LogOut className="h-4 w-4 text-destructive" />
-              Log out
+            <DropdownMenuItem className="p-0 text-destructive focus:text-destructive">
+              <form action={signOut} className="w-full">
+                <SignOutMenuButton />
+              </form>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

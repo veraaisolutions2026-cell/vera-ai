@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { adminUpdateUserRole } from "@/lib/db/admin"
+import { adminDeleteUser, adminUpdateUserRole } from "@/lib/db/admin"
 import { z } from "zod"
 
 const schema = z.object({
@@ -51,4 +51,32 @@ export async function PATCH(
   }
 
   return NextResponse.json({ success: true })
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const admin = await assertAdmin()
+  if (!admin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const { id } = await params
+  if (id === admin.id) {
+    return NextResponse.json(
+      { error: "You cannot remove your own admin account" },
+      { status: 400 }
+    )
+  }
+
+  const ok = await adminDeleteUser(id)
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Failed to delete user" },
+      { status: 500 }
+    )
+  }
+
+  return new NextResponse(null, { status: 204 })
 }

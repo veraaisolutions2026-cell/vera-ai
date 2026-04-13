@@ -3,12 +3,16 @@
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useFormStatus } from "react-dom"
 import { VeraLogo } from "@/components/ui/vera-logo"
 import {
   Bot,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Sparkles,
   Sun,
   Users,
@@ -21,19 +25,62 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/animate-ui/components/radix/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/animate-ui/components/radix/tooltip"
 import { signOut } from "@/actions/auth-actions"
+import { Loader } from "@/components/ai/loader"
 import { cn } from "@/lib/utils"
 import type { UserData } from "@/types/database"
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
-  { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
-  { href: "/admin/aca", label: "Agent Creator", icon: Sparkles, exact: false },
   { href: "/admin/users", label: "Users", icon: Users, exact: false },
+  { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
+  {
+    href: "/admin/aca",
+    label: "Agent Creator",
+    icon: Sparkles,
+    exact: false,
+  },
+  {
+    href: "/admin/subscriptions",
+    label: "Subscriptions",
+    icon: CreditCard,
+    exact: false,
+  },
 ]
 
-export function AdminSidebar({ user }: { user: UserData }) {
+type Props = {
+  user: UserData
+  onCollapse: () => void
+  onExpand: () => void
+  collapsed: boolean
+}
+
+function AdminSignOutButton() {
+  const { pending } = useFormStatus()
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex w-full cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending ? (
+        <Loader size={14} className="text-destructive" />
+      ) : (
+        <LogOut className="h-4 w-4 text-destructive" />
+      )}
+      <span>{pending ? "Signing out..." : "Sign out"}</span>
+    </button>
+  )
+}
+
+export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
   const pathname = usePathname()
   const { resolvedTheme, setTheme } = useTheme()
 
@@ -47,29 +94,107 @@ export function AdminSidebar({ user }: { user: UserData }) {
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname.startsWith(href)
 
+  if (collapsed) {
+    return (
+      <aside className="flex h-svh w-13 shrink-0 flex-col items-center bg-sidebar">
+        <div className="flex w-full flex-col items-center gap-1 px-1.5 pt-2 pb-1">
+          <VeraLogo width={20} height={20} variant="short" className="mb-1" />
+          <Tooltip delayDuration={600}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onExpand}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Expand sidebar</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <div className="flex w-full flex-col items-center gap-1 border-t border-border/40 px-1.5 py-2">
+          {navItems.map(({ href, label, icon: Icon, exact }) => (
+            <Tooltip key={href} delayDuration={600}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+                    isActive(href, exact)
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{label}</TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+
+        <div className="flex-1" />
+
+        <div className="flex w-full flex-col items-center border-t border-border/40 px-1.5 pt-2 pb-2">
+          <Tooltip delayDuration={600}>
+            <TooltipTrigger asChild>
+              <button className="flex h-7 w-7 items-center justify-center rounded-full">
+                {user.avatarUrl ? (
+                  <Image
+                    src={user.avatarUrl}
+                    alt={user.name}
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[11px] font-semibold">
+                    {initials}
+                  </div>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{user.name}</TooltipContent>
+          </Tooltip>
+        </div>
+      </aside>
+    )
+  }
+
   return (
     <aside className="flex h-svh w-60 shrink-0 flex-col bg-sidebar">
-      {/* Header */}
-      <div className="flex h-14 shrink-0 items-center px-4">
-        <div className="flex flex-col gap-1">
+      {/* Header — logo left, Admin label right */}
+      <div className="flex h-14 shrink-0 items-center justify-between px-4">
+        <div className="flex items-center gap-3">
           <VeraLogo width={74} height={20} />
-          <span className="text-[10px] font-medium tracking-widest text-muted-foreground/60 uppercase">
+          <span className="border-l border-border/60 pl-3 text-[10px] font-medium tracking-widest text-muted-foreground/60 uppercase">
             Admin
           </span>
         </div>
+        <Tooltip delayDuration={600}>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onCollapse}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Close sidebar</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Nav */}
-      <div className="flex-1 px-2 py-2">
+      <div className="flex flex-1 flex-col gap-0.5 px-2 py-2">
         {navItems.map(({ href, label, icon: Icon, exact }) => (
           <Link
             key={href}
             href={href}
             className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+              "flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm transition-colors",
               isActive(href, exact)
-                ? "bg-foreground/[0.09] text-foreground"
-                : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
+                ? "bg-foreground/9 text-foreground"
+                : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
@@ -82,7 +207,7 @@ export function AdminSidebar({ user }: { user: UserData }) {
       <div className="shrink-0 border-t border-border/40 px-2 py-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-foreground/[0.06]">
+            <button className="flex w-full items-center gap-2.5 rounded-full px-2 py-2 text-left transition-colors hover:bg-foreground/6">
               {user.avatarUrl ? (
                 <Image
                   src={user.avatarUrl}
@@ -145,15 +270,9 @@ export function AdminSidebar({ user }: { user: UserData }) {
               {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="flex w-full cursor-pointer items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4 text-destructive" />
-                  <span>Sign out</span>
-                </button>
+            <DropdownMenuItem className="p-0 text-destructive focus:text-destructive">
+              <form action={signOut} className="w-full">
+                <AdminSignOutButton />
               </form>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -11,6 +11,7 @@ const updateSchema = z.object({
   base_model: z.string().min(1).optional(),
   category: z.string().nullable().optional(),
   is_builtin: z.boolean().optional(),
+  user_id: z.string().nullable().optional(),
 })
 
 async function assertAdmin() {
@@ -48,7 +49,11 @@ export async function PATCH(
     )
   }
 
-  const agent = await adminUpdateAgent(id, parsed.data)
+  const agent = await adminUpdateAgent(id, {
+    ...parsed.data,
+    is_builtin: true,
+    user_id: null,
+  })
   if (!agent) {
     return NextResponse.json(
       { error: "Failed to update agent" },

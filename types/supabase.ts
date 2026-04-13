@@ -96,8 +96,8 @@ export type Database = {
           created_at: string
           turn_key: string
           user_content: string
-          user_parts: Json | null
           user_id: string
+          user_parts: Json | null
         }
         Insert: {
           assistant_content: string
@@ -105,8 +105,8 @@ export type Database = {
           created_at?: string
           turn_key: string
           user_content: string
-          user_parts?: Json | null
           user_id: string
+          user_parts?: Json | null
         }
         Update: {
           assistant_content?: string
@@ -114,8 +114,8 @@ export type Database = {
           created_at?: string
           turn_key?: string
           user_content?: string
-          user_parts?: Json | null
           user_id?: string
+          user_parts?: Json | null
         }
         Relationships: []
       }

@@ -99,7 +99,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
     setPreviewPrompt(null)
     setUpdatedAt(new Date().toISOString())
     setMode("view")
-    showSuccess("ACA prompt saved successfully.")
+    showSuccess("Travers prompt saved successfully.")
   }
 
   const activeContent =
@@ -135,9 +135,9 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
       <div className="rounded-xl border border-border/60 bg-background p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm font-medium">Upload ACA Document</h2>
+            <h2 className="text-sm font-medium">Upload Travers Document</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Upload the ACA Master Data File (.docx or .pdf). The AI will
+              Upload the Travers Master Data File (.docx or .pdf). The AI will
               extract and reformat it into clean structured markdown, preserving
               all §-numbered sections.
             </p>
@@ -146,7 +146,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={formatting}
-            className="flex shrink-0 items-center gap-1.5 rounded-md bg-foreground px-3.5 py-2 text-sm font-medium text-background transition-opacity hover:opacity-80 disabled:opacity-50"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3.5 py-2 text-sm font-medium text-background transition-opacity hover:opacity-80 disabled:opacity-50"
           >
             {formatting ? (
               <>
@@ -189,8 +189,8 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
             {mode === "preview"
               ? "Formatted Preview — review before saving"
               : mode === "edit"
-                ? "Edit ACA Prompt"
-                : "Current ACA Master Prompt"}
+                ? "Edit Travers Prompt"
+                : "Current Travers Master Prompt"}
           </h2>
           <div className="flex items-center gap-2">
             {mode === "view" && currentPrompt && (
@@ -225,7 +225,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
           ) : (
             <div className="rounded-lg border border-dashed border-border/60 px-4 py-12 text-center">
               <p className="text-sm text-muted-foreground">
-                No ACA prompt configured yet. Upload a file above to get
+                No Travers prompt configured yet. Upload a file above to get
                 started.
               </p>
             </div>
@@ -255,7 +255,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
               }
               disabled={saving || (!previewPrompt && !editValue.trim())}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-opacity",
+                "flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-opacity",
                 mode === "preview"
                   ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
                   : "bg-foreground text-background hover:opacity-80",

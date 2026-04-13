@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { AdminSidebar } from "./admin/components/admin-sidebar"
+import { AdminShell } from "./components/admin-shell"
 import type { UserData } from "@/types/database"
 
 export default async function AdminLayout({
@@ -31,12 +31,5 @@ export default async function AdminLayout({
     role: "admin",
   }
 
-  return (
-    <div className="flex h-svh overflow-hidden bg-background">
-      <AdminSidebar user={userData} />
-      <main className="my-2 mr-2 flex flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border">
-        {children}
-      </main>
-    </div>
-  )
+  return <AdminShell user={userData}>{children}</AdminShell>
 }
