@@ -1,10 +1,18 @@
-import { Geist, Geist_Mono, Inter } from "next/font/google"
+import type { Metadata } from "next"
+import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { cn } from "@/lib/utils";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'})
+export const metadata: Metadata = {
+  title: "Vera AI",
+  description: "AI-powered auditing workspace",
+}
+import { ThemeProvider } from "@/components/theme-provider"
+import { NavigationLoader } from "@/components/navigation-loader"
+import { Toaster } from "@/components/toaster"
+import { cn } from "@/lib/utils"
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
 const fontMono = Geist_Mono({
   subsets: ["latin"],
@@ -20,10 +28,19 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", inter.variable)}
+      className={cn(
+        "antialiased",
+        fontMono.variable,
+        "font-sans",
+        inter.variable
+      )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <NavigationLoader />
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   )
