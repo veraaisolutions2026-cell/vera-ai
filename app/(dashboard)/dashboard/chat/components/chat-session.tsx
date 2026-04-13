@@ -647,29 +647,19 @@ export function ChatSession({
                         key={card.title}
                         onClick={() => typeIntoComposer(card.prompt)}
                         disabled={isStreaming}
-                        className="group relative overflow-hidden rounded-xl border border-border/50 bg-card/60 p-4 text-left transition-all hover:border-border/80 hover:bg-card disabled:pointer-events-none disabled:opacity-50"
+                        className="group flex flex-col gap-3 rounded-xl border border-border/50 bg-card/60 p-4 text-left transition-all hover:border-border/80 hover:bg-card disabled:pointer-events-none disabled:opacity-50"
                       >
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute top-0 left-5 h-px w-[70%] -rotate-[0.8deg] bg-linear-to-r from-white/45 via-white/12 to-transparent"
-                        />
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/5 ring-inset"
-                        />
-                        <span className="relative z-10 flex flex-col gap-3">
-                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground/6 text-muted-foreground/70 transition-colors group-hover:bg-foreground/10 group-hover:text-foreground">
-                            <Icon className="h-3.5 w-3.5" />
-                          </span>
-                          <div>
-                            <p className="text-sm leading-snug font-medium">
-                              {card.title}
-                            </p>
-                            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                              {card.description}
-                            </p>
-                          </div>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground/6 text-muted-foreground/70 transition-colors group-hover:bg-foreground/10 group-hover:text-foreground">
+                          <Icon className="h-3.5 w-3.5" />
                         </span>
+                        <div>
+                          <p className="text-sm leading-snug font-medium">
+                            {card.title}
+                          </p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                            {card.description}
+                          </p>
+                        </div>
                       </button>
                     )
                   })}

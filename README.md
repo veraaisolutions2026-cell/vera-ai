@@ -104,7 +104,7 @@ Top-level directories you will use most:
 - `app/(auth)` - login/register/forgot password
 - `app/(dashboard)` - main product workspace
 - `app/(admin)` - admin tools
-- `app/(marketing)` - public marketing site
+- `app/(landing)` - public landing site
 - `app/api` - API routes
 
 ## 5. Core Product Routes

@@ -140,12 +140,7 @@ export function ChatComposer({
   return (
     <div className="px-4 pt-3 pb-5">
       <div className="mx-auto max-w-3xl">
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-black/8 bg-card/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.82),0_14px_36px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-[border-color,box-shadow] focus-within:border-black/12 focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_42px_rgba(15,23,42,0.12)] dark:border-white/8 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_18px_40px_rgba(0,0,0,0.3)] dark:focus-within:border-white/12 dark:focus-within:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_22px_48px_rgba(0,0,0,0.38)]">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-5 top-0 h-px bg-white/80 dark:bg-white/16"
-          />
-
+        <div className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-[0_14px_34px_rgba(2,6,23,0.14)] backdrop-blur-xl transition-[border-color,box-shadow] focus-within:border-border focus-within:shadow-[0_20px_44px_rgba(2,6,23,0.2)] dark:shadow-[0_16px_38px_rgba(0,0,0,0.4)] dark:focus-within:shadow-[0_22px_48px_rgba(0,0,0,0.5)]">
           {hasAttachmentStack && (
             <div className="px-3 pt-3 pb-1">
               <div className="flex flex-col gap-2">
@@ -217,7 +212,7 @@ export function ChatComposer({
             disabled={disabled}
             rows={1}
             className={cn(
-              "w-full resize-none rounded-[1.75rem] bg-transparent px-4 pb-18 text-sm leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
+              "w-full resize-none rounded-[1.75rem] bg-transparent mask-[linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] px-4 pb-18 text-sm leading-relaxed [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
               hasAttachmentStack ? "pt-2.5" : "pt-3.5"
             )}
             style={{ minHeight: "52px", maxHeight: "200px" }}
@@ -225,10 +220,10 @@ export function ChatComposer({
 
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-2 bottom-2 h-16 rounded-[1.35rem] bg-linear-to-t from-card via-card/98 to-card/0"
+            className="pointer-events-none absolute inset-x-2 bottom-0 h-24 rounded-b-[1.35rem] bg-linear-to-t from-card via-card/90 to-card/0"
           />
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-3 pb-3">
-            <div className="flex w-full items-center justify-between rounded-[1.2rem] border border-black/6 bg-background/78 px-1.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-md dark:border-white/8 dark:bg-background/72 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+            <div className="flex w-full items-center justify-between rounded-[1.2rem] border border-border/60 bg-background/80 px-1.5 py-1.5 backdrop-blur-md">
               <div className="flex items-center gap-1">
                 {onFileAttach && (
                   <>

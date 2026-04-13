@@ -53,24 +53,15 @@ export function AgentCard({ agent, editable = false }: Props) {
     <>
       <div
         className={cn(
-          "group relative flex flex-col gap-3 overflow-hidden rounded-xl bg-card p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(0,0,0,0.08)] ring-1 ring-border/30 transition-all dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_0_1px_rgba(255,255,255,0.04)] dark:ring-0",
+          "group relative flex flex-col gap-3 rounded-xl bg-card p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(0,0,0,0.08)] ring-1 ring-border/30 transition-all dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_0_1px_rgba(255,255,255,0.04)] dark:ring-0",
           editable
             ? "hover:ring-border/60 dark:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_0_0_1px_rgba(255,255,255,0.07)]"
             : "opacity-90",
           isPending && "pointer-events-none opacity-50"
         )}
       >
-        <span
-          aria-hidden
-          className="pointer-events-none absolute top-0 left-5 h-px w-[68%] -rotate-[0.8deg] bg-linear-to-r from-white/45 via-white/12 to-transparent"
-        />
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/5 ring-inset"
-        />
-
         {/* Header */}
-        <div className="relative z-10 flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground/6">
               <AgentIcon
@@ -133,7 +124,7 @@ export function AgentCard({ agent, editable = false }: Props) {
         )}
 
         {/* Footer */}
-        <div className="relative z-10 mt-auto flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground/60">
             {getModelLabel(agent.base_model)}
           </span>
