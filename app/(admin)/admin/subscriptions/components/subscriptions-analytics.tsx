@@ -94,7 +94,7 @@ export function SubscriptionsAnalytics({ insights }: Props) {
             </p>
           </div>
 
-          <ChartContainer config={trendConfig} className="h-[280px] w-full">
+          <ChartContainer config={trendConfig} className="h-70 w-full">
             <LineChart
               data={insights.monthlyTrend}
               margin={{ left: 12, right: 12, top: 4 }}
@@ -141,7 +141,7 @@ export function SubscriptionsAnalytics({ insights }: Props) {
             </p>
           </div>
 
-          <ChartContainer config={plansConfig} className="h-[280px] w-full">
+          <ChartContainer config={plansConfig} className="h-70 w-full">
             <BarChart
               data={insights.planBreakdown}
               margin={{ left: 12, right: 12, top: 4 }}

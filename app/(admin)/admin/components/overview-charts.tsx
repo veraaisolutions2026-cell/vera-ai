@@ -58,7 +58,7 @@ export function OverviewCharts({ data }: Props) {
           </p>
         </div>
 
-        <ChartContainer config={activityConfig} className="h-[260px] w-full">
+        <ChartContainer config={activityConfig} className="h-65 w-full">
           <LineChart data={data} margin={{ left: 12, right: 12, top: 4 }}>
             <CartesianGrid vertical={false} />
             <XAxis
@@ -102,7 +102,7 @@ export function OverviewCharts({ data }: Props) {
           </p>
         </div>
 
-        <ChartContainer config={revenueConfig} className="h-[260px] w-full">
+        <ChartContainer config={revenueConfig} className="h-65 w-full">
           <BarChart data={data} margin={{ left: 12, right: 12, top: 4 }}>
             <CartesianGrid vertical={false} />
             <XAxis

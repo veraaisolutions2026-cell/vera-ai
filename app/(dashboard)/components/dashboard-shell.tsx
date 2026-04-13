@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
+import { NavigationLoader } from "@/components/navigation-loader"
+import { RouteTransition } from "@/components/route-transition"
 import { Sidebar } from "./sidebar"
-import { PageTransition } from "./page-transition"
 import type { Chat, UserData } from "@/types/database"
 
 type Props = {
@@ -46,9 +47,14 @@ export function DashboardShell({ user, chats, children }: Props) {
       </motion.div>
 
       {/* Main content */}
-      <main className="mx-4 my-4 flex flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border">
-        <PageTransition>{children}</PageTransition>
+      <main
+        id="dashboard-main-content"
+        className="mx-4 my-4 flex flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border"
+      >
+        <RouteTransition>{children}</RouteTransition>
       </main>
+
+      <NavigationLoader mode="dashboard" sidebarCollapsed={!sidebarOpen} />
     </div>
   )
 }

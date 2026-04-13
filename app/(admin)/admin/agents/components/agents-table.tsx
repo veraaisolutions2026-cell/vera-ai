@@ -141,9 +141,9 @@ export function AgentsTable({ agents }: { agents: Agent[] }) {
       </div>
 
       <div className="hidden overflow-x-auto rounded-xl border border-border/60 md:block">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-190 text-sm">
           <thead>
-            <tr className="border-b border-border/60 bg-foreground/[0.02] text-left">
+            <tr className="border-b border-border/60 bg-foreground/2 text-left">
               <th className="px-4 py-3 text-xs font-medium text-muted-foreground">
                 Name
               </th>

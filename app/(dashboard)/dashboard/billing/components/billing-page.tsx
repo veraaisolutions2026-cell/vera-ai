@@ -3,19 +3,10 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
-import {
-  Check,
-  Loader2,
-  Zap,
-  Building2,
-  Sparkles,
-  CreditCard,
-  ArrowRight,
-} from "lucide-react"
+import { Check, Loader2, Zap, Building2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import type { Subscription } from "@/lib/db/subscriptions"
-import { format } from "date-fns"
 
 type Props = {
   subscription: Subscription | null
@@ -89,7 +80,6 @@ export function BillingPage({ subscription }: Props) {
   }, [searchParams])
 
   const currentPlan = (subscription?.plan ?? "free") as PlanId
-  const isActive = subscription?.status === "active"
 
   async function handleUpgrade(planId: PlanId) {
     if (planId === "free") return
@@ -113,23 +103,6 @@ export function BillingPage({ subscription }: Props) {
     }
   }
 
-  async function handleManage() {
-    setLoading("portal")
-    try {
-      const res = await fetch("/api/stripe/create-portal", { method: "POST" })
-      const data = (await res.json()) as { url?: string; error?: string }
-      if (!res.ok || data.error) {
-        toast.error(data.error ?? "Failed to open billing portal")
-        return
-      }
-      if (data.url) window.location.href = data.url
-    } catch {
-      toast.error("Something went wrong. Please try again.")
-    } finally {
-      setLoading(null)
-    }
-  }
-
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
       {/* Header */}
@@ -139,45 +112,6 @@ export function BillingPage({ subscription }: Props) {
           Manage your subscription and payment details.
         </p>
       </div>
-
-      {/* Current plan banner */}
-      {isActive && subscription && (
-        <div className="mb-8 flex flex-col gap-4 rounded-xl bg-card px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(0,0,0,0.08)] sm:flex-row sm:items-center sm:justify-between sm:px-5 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] dark:ring-1 dark:ring-white/6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/6">
-              <CreditCard className="h-4 w-4 text-foreground/70" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">
-                <span className="capitalize">{subscription.plan}</span>
-                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                  ({subscription.billing_interval ?? "monthly"})
-                </span>
-              </p>
-              {subscription.current_period_end && (
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {subscription.cancel_at_period_end
-                    ? `Cancels ${format(new Date(subscription.current_period_end), "PPP")}`
-                    : `Renews ${format(new Date(subscription.current_period_end), "PPP")}`}
-                </p>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleManage}
-            disabled={loading === "portal"}
-            className="flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-border/60 bg-background px-4 text-xs font-medium transition-colors hover:bg-foreground/5 disabled:opacity-60 sm:w-auto"
-          >
-            {loading === "portal" ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <ArrowRight className="h-3 w-3" />
-            )}
-            Manage billing
-          </button>
-        </div>
-      )}
 
       {/* Interval toggle */}
       <div className="mb-6 flex w-fit items-center gap-1 rounded-full border border-border/50 bg-muted/30 p-0.5">

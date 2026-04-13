@@ -77,7 +77,7 @@ function SignOutMenuButton() {
     <button
       type="submit"
       disabled={pending}
-      className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex w-full cursor-pointer items-center gap-2 rounded-full px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? (
         <Loader size={14} className="text-destructive" />
@@ -173,7 +173,7 @@ function ChatItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
     <>
       <div
         className={cn(
-          "group/chat mx-1 flex items-center rounded-md transition-colors",
+          "group/chat mx-1 flex items-center rounded-full transition-colors",
           isActive
             ? "bg-foreground/10 text-foreground"
             : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground",
@@ -213,7 +213,7 @@ function ChatItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover/chat:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
+                "mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full opacity-0 transition-opacity group-hover/chat:opacity-100 focus:opacity-100 data-[state=open]:opacity-100",
                 isRenaming && "pointer-events-none opacity-0"
               )}
               aria-label="Chat options"
@@ -304,7 +304,7 @@ export function Sidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={onExpand}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <PanelLeftOpen className="h-4 w-4" />
               </button>
@@ -315,7 +315,7 @@ export function Sidebar({
             <TooltipTrigger asChild>
               <Link
                 href="/dashboard/chat"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <SquarePen className="h-4 w-4" />
               </Link>
@@ -335,7 +335,7 @@ export function Sidebar({
                 <Link
                   href={href}
                   className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+                    "flex h-7 w-7 items-center justify-center rounded-full transition-colors",
                     pathname.startsWith(href)
                       ? "bg-foreground/10 text-foreground"
                       : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
@@ -386,7 +386,7 @@ export function Sidebar({
             <TooltipTrigger asChild>
               <Link
                 href="/dashboard/chat"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <SquarePen className="h-4 w-4" />
               </Link>
@@ -398,7 +398,7 @@ export function Sidebar({
             <TooltipTrigger asChild>
               <button
                 onClick={onCollapse}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <PanelLeftClose className="h-4 w-4" />
               </button>
@@ -442,10 +442,10 @@ export function Sidebar({
               key={href}
               href={href}
               className={cn(
-                "mx-1 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors",
+                "mx-1 flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm transition-colors",
                 pathname.startsWith(href)
                   ? "bg-foreground/10 text-foreground"
-                  : "text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+                  : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -459,7 +459,7 @@ export function Sidebar({
       <div className="shrink-0 border-t border-border/40 px-2 py-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-foreground/8">
+            <button className="flex w-full items-center gap-2.5 rounded-full px-2 py-2 text-left transition-colors hover:bg-foreground/6">
               {user.avatarUrl ? (
                 <Image
                   src={user.avatarUrl!}

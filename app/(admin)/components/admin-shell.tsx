@@ -4,6 +4,7 @@ import { useState } from "react"
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { AdminSidebar } from "@/app/(admin)/admin/components/admin-sidebar"
+import { RouteTransition } from "@/components/route-transition"
 import { cn } from "@/lib/utils"
 import type { UserData } from "@/types/database"
 
@@ -80,7 +81,7 @@ export function AdminShell({ user, children }: Props) {
       </motion.div>
 
       <main className="mt-12 mr-2 mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border md:mt-2 md:ml-0">
-        {children}
+        <RouteTransition>{children}</RouteTransition>
       </main>
     </div>
   )

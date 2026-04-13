@@ -141,22 +141,26 @@ export function ChatNewPage({ userName, agents }: Props) {
       <motion.div
         key="new-chat-content"
         className="flex h-full flex-col"
-        initial={{ opacity: 0, filter: "blur(8px)", y: 6 }}
+        initial={{ opacity: 0, filter: "blur(10px)", y: 8 }}
         animate={{ opacity: 1, filter: "blur(0px)", y: 0 }}
-        transition={{ duration: 0.38, ease: "easeOut" }}
+        transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="relative h-full">
           <motion.div
             className="absolute inset-0 flex h-full w-full flex-col items-center justify-center pb-8"
-            initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+            initial={{ opacity: 0, y: 10, filter: "blur(6px)" }}
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={{ duration: 0.24, ease: "easeOut" }}
+            transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="flex w-full flex-col items-center">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.24, delay: 0.06, ease: "easeOut" }}
+                transition={{
+                  duration: 0.34,
+                  delay: 0.1,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
                 className="mb-1.5 px-4 text-center"
               >
                 <h1 className="text-2xl font-semibold tracking-tight">
@@ -167,7 +171,11 @@ export function ChatNewPage({ userName, agents }: Props) {
               <motion.p
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, delay: 0.12, ease: "easeOut" }}
+                transition={{
+                  duration: 0.32,
+                  delay: 0.18,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
                 className="mb-7 px-4 text-sm text-muted-foreground"
               >
                 {getSubheading()}
@@ -176,7 +184,11 @@ export function ChatNewPage({ userName, agents }: Props) {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, delay: 0.18 }}
+                transition={{
+                  duration: 0.38,
+                  delay: 0.24,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
                 className="w-full"
               >
                 <ChatComposer
@@ -204,7 +216,11 @@ export function ChatNewPage({ userName, agents }: Props) {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, delay: 0.24 }}
+                transition={{
+                  duration: 0.4,
+                  delay: 0.3,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
                 className="mt-4 w-full max-w-3xl px-4 sm:mt-3"
               >
                 <p className="mb-2.5 text-[11px] font-medium tracking-wide text-muted-foreground/50 uppercase">

@@ -56,6 +56,39 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_tiers: {
+        Row: {
+          annual_price_usd: number
+          custom_agent_limit: number | null
+          display_name: string
+          features: Json
+          monthly_message_limit: number | null
+          monthly_price_usd: number
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          annual_price_usd: number
+          custom_agent_limit?: number | null
+          display_name: string
+          features?: Json
+          monthly_message_limit?: number | null
+          monthly_price_usd: number
+          plan: string
+          updated_at?: string
+        }
+        Update: {
+          annual_price_usd?: number
+          custom_agent_limit?: number | null
+          display_name?: string
+          features?: Json
+          monthly_message_limit?: number | null
+          monthly_price_usd?: number
+          plan?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_trash_tokens: {
         Row: {
           assistant_content: string | null
