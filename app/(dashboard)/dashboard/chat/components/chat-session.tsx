@@ -75,10 +75,108 @@ type FlatMessage = {
   reasoningContent?: string
 }
 
+type UserBranchState = {
+  variants: string[]
+  assistantVariants: Array<string | null>
+  activeIndex: number
+}
+
+type LegacyBranchRow = {
+  source_message_id: string
+  branch_index: number
+  content: string
+  is_active: boolean
+  source_content: string | null
+  assistant_content: string | null
+  source_assistant_content: string | null
+}
+
 const MAX_PERSISTED_SEEN_MESSAGE_IDS = 600
 
 function getSeenMessagesStorageKey(chatId: string): string {
   return `vera-seen-chat-message-ids:${chatId}`
+}
+
+function stripMessageIdSuffix(id: string): string {
+  return id.replace(/:(user|assistant)$/, "")
+}
+
+function getBranchStateStorageKey(chatId: string): string {
+  return `vera-chat-branch-state:${chatId}`
+}
+
+function loadUserBranchMap(chatId: string): Record<string, UserBranchState> {
+  if (typeof window === "undefined") return {}
+
+  try {
+    const raw = window.sessionStorage.getItem(getBranchStateStorageKey(chatId))
+    if (!raw) return {}
+
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== "object") return {}
+
+    const next: Record<string, UserBranchState> = {}
+
+    for (const [messageId, value] of Object.entries(parsed)) {
+      if (!value || typeof value !== "object") continue
+
+      const maybe = value as {
+        variants?: unknown
+        assistantVariants?: unknown
+        activeIndex?: unknown
+      }
+
+      if (!Array.isArray(maybe.variants)) continue
+      if (!Array.isArray(maybe.assistantVariants)) continue
+      if (typeof maybe.activeIndex !== "number") continue
+
+      const variants = maybe.variants.filter(
+        (entry): entry is string => typeof entry === "string"
+      )
+      const assistantVariants = maybe.assistantVariants.map((entry) =>
+        typeof entry === "string" ? entry : null
+      )
+
+      if (!variants.length) continue
+
+      next[messageId] = {
+        variants,
+        assistantVariants:
+          assistantVariants.length >= variants.length
+            ? assistantVariants.slice(0, variants.length)
+            : [
+                ...assistantVariants,
+                ...new Array(variants.length - assistantVariants.length).fill(
+                  null
+                ),
+              ],
+        activeIndex: Math.max(
+          0,
+          Math.min(variants.length - 1, maybe.activeIndex)
+        ),
+      }
+    }
+
+    return next
+  } catch {
+    return {}
+  }
+}
+
+function persistUserBranchMap(
+  chatId: string,
+  map: Record<string, UserBranchState>
+) {
+  if (typeof window === "undefined") return
+
+  try {
+    window.sessionStorage.setItem(
+      getBranchStateStorageKey(chatId),
+      JSON.stringify(map)
+    )
+  } catch {
+    // Best-effort only.
+  }
 }
 
 function loadSeenMessageIds(chatId: string): Set<string> {
@@ -189,6 +287,133 @@ function isChatRole(role: UIMessage["role"]): role is "user" | "assistant" {
   return role === "user" || role === "assistant"
 }
 
+/**
+ * Build the initial branch state map synchronously from server-provided branch
+ * rows and initialMessages. Runs as a useState lazy initializer so branches are
+ * visible on the very first render with no client-side fetch needed.
+ */
+function buildInitialBranchMap(
+  branches: LegacyBranchRow[],
+  messages: UIMessage[]
+): Record<string, UserBranchState> {
+  if (!branches.length) return {}
+
+  const userMessages = messages.filter((m) => m.role === "user")
+  const userMessageById = new Map(userMessages.map((m) => [m.id, m]))
+  const userMessageIds = new Set(userMessages.map((m) => m.id))
+  const byContent = new Map<string, string[]>()
+  for (const message of userMessages) {
+    const text = getTextFromParts(message.parts).trim()
+    if (!text) continue
+    const existing = byContent.get(text) ?? []
+    existing.push(message.id)
+    byContent.set(text, existing)
+  }
+  const byStripped = new Map(
+    userMessages.map((m) => [m.id.replace(/:(user|assistant)$/, ""), m.id])
+  )
+
+  // Build assistant content lookup
+  const assistantByUser = new Map<string, string>()
+  for (let i = 0; i < userMessages.length; i += 1) {
+    const userMsg = userMessages[i]!
+    const userIdx = messages.findIndex((m) => m.id === userMsg.id)
+    const paired = messages
+      .slice(userIdx + 1)
+      .find((m) => m.role === "assistant")
+    const text = paired ? getTextFromParts(paired.parts).trim() : ""
+    if (text) assistantByUser.set(userMsg.id, text)
+  }
+
+  const grouped = new Map<string, LegacyBranchRow[]>()
+  for (const row of branches) {
+    if (!grouped.has(row.source_message_id))
+      grouped.set(row.source_message_id, [])
+    grouped.get(row.source_message_id)!.push(row)
+  }
+
+  const result: Record<string, UserBranchState> = {}
+
+  for (const [sourceId, rows] of grouped.entries()) {
+    let messageId = sourceId
+
+    if (!userMessageIds.has(messageId)) {
+      messageId = byStripped.get(messageId) ?? messageId
+    }
+    if (!userMessageIds.has(messageId)) {
+      const sourceContent = rows
+        .map((r) => r.source_content?.trim() ?? "")
+        .find(Boolean)
+      const sourceAssistantContent = rows
+        .map((r) => r.source_assistant_content?.trim() ?? "")
+        .find(Boolean)
+
+      if (sourceContent) {
+        const candidates = byContent.get(sourceContent) ?? []
+
+        if (candidates.length === 1) {
+          messageId = candidates[0]!
+        } else if (candidates.length > 1) {
+          if (sourceAssistantContent) {
+            const matchedByPair = candidates.find(
+              (candidateId) =>
+                (assistantByUser.get(candidateId)?.trim() ?? "") ===
+                sourceAssistantContent
+            )
+            if (matchedByPair) {
+              messageId = matchedByPair
+            }
+          }
+
+          if (!userMessageIds.has(messageId)) {
+            // Deterministic fallback for duplicate user text: pick earliest turn.
+            messageId = candidates[0]!
+          }
+        }
+      }
+    }
+    if (!userMessageIds.has(messageId) && userMessages.length === 1) {
+      messageId = userMessages[0]!.id
+    }
+    if (!userMessageIds.has(messageId)) continue
+
+    const sorted = [...rows].sort((a, b) => a.branch_index - b.branch_index)
+
+    const sourceAssistant = sorted
+      .map((r) => r.source_assistant_content?.trim() ?? "")
+      .find(Boolean)
+
+    const sourceUserContent = userMessageById.get(messageId)
+      ? getTextFromParts(userMessageById.get(messageId)!.parts).trim()
+      : (sorted.map((r) => r.source_content?.trim() ?? "").find(Boolean) ?? "")
+
+    if (!sourceUserContent) continue
+
+    const variants: string[] = [sourceUserContent]
+    const assistantVariants: Array<string | null> = [
+      sourceAssistant || assistantByUser.get(messageId) || null,
+    ]
+    let activeIndex = 0
+
+    for (const row of sorted) {
+      const branchText = row.content?.trim()
+      if (!branchText || variants.includes(branchText)) {
+        if (row.is_active)
+          activeIndex = Math.max(0, variants.indexOf(branchText))
+        continue
+      }
+      variants.push(branchText)
+      assistantVariants.push(row.assistant_content?.trim() || null)
+      if (row.is_active) activeIndex = variants.length - 1
+    }
+
+    const canonicalKey = messageId.replace(/:(user|assistant)$/, "")
+    result[canonicalKey] = { variants, assistantVariants, activeIndex }
+  }
+
+  return result
+}
+
 export function ChatSession({
   chatId,
   initialTitle,
@@ -206,6 +431,9 @@ export function ChatSession({
   const [input, setInput] = useState("")
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [showDeadStateFallback, setShowDeadStateFallback] = useState(false)
+  const [userBranchMap, setUserBranchMap] = useState<
+    Record<string, UserBranchState>
+  >(() => buildInitialBranchMap([], initialMessages))
   const [deadStateFallbackText, setDeadStateFallbackText] = useState(
     "I couldn't generate a response this time. You can retry now."
   )
@@ -223,9 +451,15 @@ export function ChatSession({
   )
   const seenMessageIdsRef = useRef<Set<string>>(new Set())
   const seenMessageIdsInitializedRef = useRef(false)
+  const branchStorageHydratedRef = useRef(false)
+  const branchSelectInFlightRef = useRef<Record<string, boolean>>({})
+  const branchSelectQueuedIndexRef = useRef<Record<string, number | undefined>>(
+    {}
+  )
+  const regenerateInFlightAssistantIdsRef = useRef<Set<string>>(new Set())
 
   if (!seenMessageIdsInitializedRef.current) {
-    const seen = loadSeenMessageIds(chatId)
+    const seen = new Set<string>()
     for (const message of initialMessages) {
       seen.add(message.id)
     }
@@ -246,16 +480,60 @@ export function ChatSession({
     [chatId]
   )
 
-  const { messages, sendMessage, status, stop, regenerate } = useChat({
-    messages: initialMessages,
-    transport,
-  })
+  const { messages, sendMessage, status, stop, regenerate, setMessages } =
+    useChat({
+      id: chatId,
+      messages: initialMessages,
+      transport,
+    })
 
   const isStreaming = status === "submitted" || status === "streaming"
 
   useEffect(() => {
     latestMessagesRef.current = messages
   }, [messages])
+
+  useEffect(() => {
+    if (!branchStorageHydratedRef.current) return
+    persistUserBranchMap(chatId, userBranchMap)
+  }, [chatId, userBranchMap])
+
+  useEffect(() => {
+    const persisted = loadSeenMessageIds(chatId)
+    if (!persisted.size) return
+
+    let changed = false
+    for (const id of persisted) {
+      if (seenMessageIdsRef.current.has(id)) continue
+      seenMessageIdsRef.current.add(id)
+      changed = true
+    }
+
+    if (changed) {
+      persistSeenMessageIds(chatId, seenMessageIdsRef.current)
+    }
+  }, [chatId])
+
+  useEffect(() => {
+    const persisted = loadUserBranchMap(chatId)
+    branchStorageHydratedRef.current = true
+    if (!Object.keys(persisted).length) return
+
+    setUserBranchMap((previous) => {
+      const next = { ...previous }
+
+      for (const [messageId, state] of Object.entries(persisted)) {
+        // Always use canonical (stripped) key as single source of truth.
+        const canonicalKey = stripMessageIdSuffix(messageId)
+        const existing = next[canonicalKey]
+        if (!existing || state.variants.length > existing.variants.length) {
+          next[canonicalKey] = state
+        }
+      }
+
+      return next
+    })
+  }, [chatId])
 
   useEffect(() => {
     latestStatusRef.current = status
@@ -271,6 +549,46 @@ export function ChatSession({
   const hideDeadState = useCallback(() => {
     setShowDeadStateFallback(false)
   }, [])
+
+  const getAssistantTextByMessageId = useCallback(
+    (assistantMessageId: string): string | null => {
+      const assistantMessage = latestMessagesRef.current.find(
+        (message) =>
+          message.id === assistantMessageId && message.role === "assistant"
+      )
+      if (!assistantMessage) return null
+
+      const text = getTextFromParts(assistantMessage.parts).trim()
+      return text || null
+    },
+    []
+  )
+
+  const setAssistantVariantAtIndex = useCallback(
+    (canonicalKey: string, index: number, assistantMessageId: string) => {
+      const assistantText = getAssistantTextByMessageId(assistantMessageId)
+      if (!assistantText) return
+
+      setUserBranchMap((previous) => {
+        const state = previous[canonicalKey]
+        if (!state || index < 0 || index >= state.assistantVariants.length) {
+          return previous
+        }
+
+        const nextAssistantVariants = [...state.assistantVariants]
+        nextAssistantVariants[index] = assistantText
+
+        return {
+          ...previous,
+          [canonicalKey]: {
+            ...state,
+            assistantVariants: nextAssistantVariants,
+          },
+        }
+      })
+    },
+    [getAssistantTextByMessageId]
+  )
 
   useEffect(() => {
     let didChange = false
@@ -309,43 +627,24 @@ export function ChatSession({
         }))
 
       if (!hasAssistantAfterLatestUser(currentFlatMessages)) {
-        const latestUser = [...currentFlatMessages]
-          .reverse()
-          .find((message) => message.role === "user")
-        const fallbackText = getDeadStateMessageFromTurnState(
-          latestTurnStateRef.current
-        )
-
         const turnState = latestTurnStateRef.current
-        // Only auto-recover for states where the server sent NO content in the
-        // response. "already-complete", "already-complete-legacy", and
-        // "claim-missed-replayed" all return replay responses WITH content —
-        // auto-recovering them sends the current messages (which now have an
-        // assistant tail) back to the server, hitting non-user-tail and looping
-        // into a permanent dead-state.
-        const canAutoRecover =
+        if (
           turnState === "already-pending" ||
-          turnState === "already-pending-legacy" ||
-          turnState === "claim-missed"
-
-        if (latestUser && canAutoRecover) {
-          const recoveryKey = `${chatId}:${latestUser.id}`
-          if (!deadStateAutoRecoveryAttemptedRef.current[recoveryKey]) {
-            deadStateAutoRecoveryAttemptedRef.current[recoveryKey] = true
-            void sendMessage().catch(() => {
-              // Let the normal fallback path handle final user messaging.
-            })
-            return
-          }
+          turnState === "already-pending-legacy"
+        ) {
+          // Another request already owns this turn. Avoid showing dead-state
+          // fallback or auto-resubmitting, which can cause retry loops.
+          return
         }
 
+        const fallbackText = getDeadStateMessageFromTurnState(turnState)
         showDeadState(fallbackText)
         toast.error(fallbackText)
       }
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [chatId, sendMessage, showDeadState, status])
+  }, [showDeadState, status])
 
   // Bootstrap: fire one generation automatically on mount.
   // reactStrictMode is false so this fires exactly once — no guards needed.
@@ -446,6 +745,135 @@ export function ChatSession({
         reasoningContent: getReasoningFromParts(message.parts),
       }))
   }, [messages])
+
+  const assistantContentByUserMessageId = useMemo(() => {
+    const map = new Map<string, string>()
+
+    for (let index = 0; index < flatMessages.length; index += 1) {
+      const message = flatMessages[index]
+      if (message?.role !== "user") continue
+
+      const pairedAssistant = flatMessages
+        .slice(index + 1)
+        .find((entry) => entry.role === "assistant")
+
+      if (pairedAssistant?.content?.trim()) {
+        map.set(message.id, pairedAssistant.content)
+      }
+    }
+
+    return map
+  }, [flatMessages])
+
+  const userBranchStateByCanonicalId = useMemo(() => {
+    const map = new Map<string, UserBranchState>()
+
+    for (const [messageId, state] of Object.entries(userBranchMap)) {
+      map.set(stripMessageIdSuffix(messageId), state)
+    }
+
+    return map
+  }, [userBranchMap])
+
+  useEffect(() => {
+    if (status !== "ready") return
+
+    setUserBranchMap((previous) => {
+      let changed = false
+      const next = { ...previous }
+
+      for (const message of flatMessages) {
+        if (message.role !== "user") continue
+        // Always key by canonical (stripped) ID.
+        const canonicalKey = stripMessageIdSuffix(message.id)
+        const existing = next[canonicalKey]
+        const pairedAssistant =
+          assistantContentByUserMessageId.get(message.id)?.trim() ?? null
+
+        if (!existing) {
+          next[canonicalKey] = {
+            variants: [message.content],
+            assistantVariants: [pairedAssistant],
+            activeIndex: 0,
+          }
+          changed = true
+          continue
+        }
+
+        // First assistant arrives after the user message was already seeded with
+        // assistantVariants[0] = null. Fill it once to prevent selecting back to
+        // original branch from triggering an unnecessary regenerate.
+        const existingOriginalAssistant =
+          existing.assistantVariants[0]?.trim() ?? ""
+
+        if (
+          pairedAssistant &&
+          (existingOriginalAssistant.length === 0 ||
+            pairedAssistant.length > existingOriginalAssistant.length)
+        ) {
+          const nextAssistantVariants = [...existing.assistantVariants]
+          if (nextAssistantVariants.length === 0) {
+            nextAssistantVariants.push(pairedAssistant)
+          } else {
+            nextAssistantVariants[0] = pairedAssistant
+          }
+
+          next[canonicalKey] = {
+            ...existing,
+            assistantVariants: nextAssistantVariants,
+          }
+          changed = true
+        }
+      }
+
+      return changed ? next : previous
+    })
+  }, [assistantContentByUserMessageId, flatMessages, status])
+
+  useEffect(() => {
+    if (status !== "ready") return
+
+    // When a branch is active, backfill or upgrade its assistant slot using the
+    // settled assistant content from the paired turn.
+    setUserBranchMap((previous) => {
+      let changed = false
+      const next = { ...previous }
+
+      for (const message of flatMessages) {
+        if (message.role !== "user") continue
+
+        const canonicalKey = stripMessageIdSuffix(message.id)
+        const state = next[canonicalKey]
+        if (!state) continue
+
+        const activeIndex = state.activeIndex
+        if (activeIndex <= 0) continue
+
+        const pairedAssistant =
+          assistantContentByUserMessageId.get(message.id)?.trim() ?? ""
+        if (!pairedAssistant) continue
+
+        const existingAssistant =
+          state.assistantVariants[activeIndex]?.trim() ?? ""
+        if (
+          existingAssistant.length > 0 &&
+          pairedAssistant.length <= existingAssistant.length
+        ) {
+          continue
+        }
+
+        const nextAssistantVariants = [...state.assistantVariants]
+        nextAssistantVariants[activeIndex] = pairedAssistant
+        next[canonicalKey] = {
+          ...state,
+          assistantVariants: nextAssistantVariants,
+        }
+        changed = true
+      }
+
+      return changed ? next : previous
+    })
+  }, [assistantContentByUserMessageId, flatMessages, status])
 
   useEffect(() => {
     if (isStreaming || hasAssistantAfterLatestUser(flatMessages)) {
@@ -551,6 +979,104 @@ export function ChatSession({
       await regenerate({ messageId })
     },
     [isStreaming, regenerate]
+  )
+
+  const handleRetryUser = useCallback(
+    async (assistantMessageId: string) => {
+      if (isStreaming) return
+
+      latestTurnStateRef.current = null
+      hideDeadState()
+
+      try {
+        await regenerate({ messageId: assistantMessageId })
+      } catch {
+        showDeadState(
+          "We could not complete this response. Please retry once your connection is stable."
+        )
+        toast.error(
+          "Server is busy or your connection is unstable. Please retry."
+        )
+      }
+    },
+    [hideDeadState, isStreaming, regenerate, showDeadState]
+  )
+
+  const handleEditUser = useCallback(
+    async (
+      messageId: string,
+      updatedContent: string,
+      sourceContent: string,
+      assistantMessageId: string
+    ) => {
+      if (isStreaming) return
+
+      const trimmed = updatedContent.trim()
+      if (!trimmed) return
+
+      latestTurnStateRef.current = null
+      hideDeadState()
+      const previousMessages = messages
+
+      setMessages((currentMessages) =>
+        currentMessages.map((message) => {
+          if (message.id === messageId && message.role === "user") {
+            return {
+              ...message,
+              parts: [{ type: "text", text: trimmed }],
+            }
+          }
+
+          if (
+            message.id === assistantMessageId &&
+            message.role === "assistant"
+          ) {
+            return {
+              ...message,
+              parts: [{ type: "text", text: "" }],
+            }
+          }
+
+          return message
+        })
+      )
+
+      try {
+        const response = await fetch(`/api/chat/${chatId}/overwrite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceMessageId: messageId,
+            sourceContent,
+            content: trimmed,
+            assistantMessageId,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to overwrite message")
+        }
+
+        await regenerate({ messageId: assistantMessageId })
+      } catch {
+        setMessages(previousMessages)
+        showDeadState(
+          "We could not complete this response. Please retry once your connection is stable."
+        )
+        toast.error(
+          "Server is busy or your connection is unstable. Please retry."
+        )
+      }
+    },
+    [
+      chatId,
+      hideDeadState,
+      isStreaming,
+      messages,
+      regenerate,
+      setMessages,
+      showDeadState,
+    ]
   )
 
   function getGreeting() {
@@ -690,6 +1216,13 @@ export function ChatSession({
               <div className="flex-1 overflow-y-auto">
                 <div className="mx-auto max-w-3xl space-y-6 px-4 pt-8 pb-44">
                   {flatMessages.map((message, index) => {
+                    const pairedAssistantMessageId =
+                      message.role === "user"
+                        ? (flatMessages
+                            .slice(index + 1)
+                            .find((entry) => entry.role === "assistant")?.id ??
+                          null)
+                        : null
                     const isStreamingThis =
                       isStreaming &&
                       index === flatMessages.length - 1 &&
@@ -719,6 +1252,27 @@ export function ChatSession({
                           reasoningEnabled={reasoningEnabled}
                           isStreaming={isStreamingThis}
                           revealOnMount={shouldRevealOnMount}
+                          onUserRetry={
+                            !isStreaming &&
+                            message.role === "user" &&
+                            pairedAssistantMessageId
+                              ? () =>
+                                  void handleRetryUser(pairedAssistantMessageId)
+                              : undefined
+                          }
+                          onUserEdit={
+                            !isStreaming &&
+                            message.role === "user" &&
+                            pairedAssistantMessageId
+                              ? (messageId, content) =>
+                                  handleEditUser(
+                                    messageId,
+                                    content,
+                                    message.content,
+                                    pairedAssistantMessageId
+                                  )
+                              : undefined
+                          }
                           onRetry={
                             !isStreaming && message.role === "assistant"
                               ? () => void handleRetry(message.id)

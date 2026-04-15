@@ -22,12 +22,8 @@ type Props = {
 }
 
 const activityConfig = {
-  messages: {
-    label: "Messages",
-    color: "var(--chart-1)",
-  },
-  chats: {
-    label: "Chats",
+  requests: {
+    label: "Requests",
     color: "var(--chart-2)",
   },
 } satisfies ChartConfig
@@ -37,8 +33,8 @@ const spendConfig = {
     label: "Spend",
     color: "oklch(0.83 0.005 286)",
   },
-  messages: {
-    label: "Messages",
+  requests: {
+    label: "Requests",
     color: "var(--chart-1)",
   },
 } satisfies ChartConfig
@@ -46,24 +42,24 @@ const spendConfig = {
 export function UsageOverview({ usage }: Props) {
   const cards = [
     {
-      label: "Total Chats",
-      value: usage.totalChats.toLocaleString(),
-      sub: "All-time",
+      label: "Total Requests",
+      value: usage.totalRequests.toLocaleString(),
+      sub: "Completed AI requests",
     },
     {
-      label: "Total Messages",
-      value: usage.totalMessages.toLocaleString(),
-      sub: "All-time",
+      label: "Requests This Month",
+      value: usage.monthRequests.toLocaleString(),
+      sub: usage.includedRequestsLabel,
     },
     {
-      label: "Messages This Month",
-      value: usage.monthMessages.toLocaleString(),
-      sub: "Current period",
+      label: "Active Days",
+      value: usage.activeDaysLast14.toLocaleString(),
+      sub: "Last 14 days",
     },
     {
       label: "Current Plan",
       value: usage.plan.toUpperCase(),
-      sub: `${usage.status} • $${usage.estimatedMonthlySpend}/mo`,
+      sub: `${usage.status} • ${usage.includedRequestsLabel}`,
     },
   ]
 
@@ -89,7 +85,7 @@ export function UsageOverview({ usage }: Props) {
           <div className="mb-4">
             <h2 className="text-sm font-medium">Activity</h2>
             <p className="text-xs text-muted-foreground">
-              Chats and messages over the last 14 days.
+              Completed AI requests over the last 14 days.
             </p>
           </div>
 
@@ -108,16 +104,9 @@ export function UsageOverview({ usage }: Props) {
               <YAxis tickLine={false} axisLine={false} width={28} />
               <ChartTooltip content={<ChartTooltipContent />} cursor={false} />
               <Line
-                dataKey="messages"
+                dataKey="requests"
                 type="monotone"
-                stroke="var(--color-messages)"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                dataKey="chats"
-                type="monotone"
-                stroke="var(--color-chats)"
+                stroke="var(--color-requests)"
                 strokeWidth={2}
                 dot={false}
               />
@@ -129,7 +118,7 @@ export function UsageOverview({ usage }: Props) {
           <div className="mb-4">
             <h2 className="text-sm font-medium">Spend</h2>
             <p className="text-xs text-muted-foreground">
-              Estimated cumulative spend trend for the current month.
+              Estimated cumulative AI cost budget for the current month.
             </p>
           </div>
 
@@ -163,9 +152,9 @@ export function UsageOverview({ usage }: Props) {
                 radius={[6, 6, 0, 0]}
               />
               <Line
-                dataKey="messages"
+                dataKey="requests"
                 type="monotone"
-                stroke="var(--color-messages)"
+                stroke="var(--color-requests)"
                 strokeWidth={2}
                 dot={false}
               />

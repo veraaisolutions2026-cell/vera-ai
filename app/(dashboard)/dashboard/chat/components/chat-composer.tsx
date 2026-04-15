@@ -11,6 +11,7 @@ import {
 } from "@/components/animate-ui/components/radix/tooltip"
 import type { ChatAttachment } from "@/lib/chat-attachments"
 import { cn } from "@/lib/utils"
+import { getModelLabel } from "@/lib/models"
 import type { Agent } from "@/types/database"
 import { AgentSelector } from "./agent-selector"
 import { ModelSelector, type ModelId } from "./model-selector"
@@ -62,6 +63,7 @@ export function ChatComposer({
   onFileClear,
   isUploading = false,
 }: Props) {
+  const [isClientReady, setIsClientReady] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [localUploading, setLocalUploading] = useState(false)
@@ -70,6 +72,10 @@ export function ChatComposer({
 
   const effectiveUploading = isUploading || localUploading
   const hasAttachmentStack = effectiveUploading || attachedFiles.length > 0
+
+  useEffect(() => {
+    setIsClientReady(true)
+  }, [])
 
   useEffect(() => {
     const element = textareaRef.current
@@ -268,12 +274,38 @@ export function ChatComposer({
                   </>
                 )}
 
-                <AgentSelector
-                  agents={agents}
-                  selectedAgent={selectedAgent}
-                  onSelect={onAgentChange}
-                />
-                <ModelSelector value={model} onChange={onModelChange} />
+                {isClientReady ? (
+                  <>
+                    <AgentSelector
+                      agents={agents}
+                      selectedAgent={selectedAgent}
+                      onSelect={onAgentChange}
+                    />
+                    <ModelSelector value={model} onChange={onModelChange} />
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled
+                      className={cn(
+                        "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium opacity-60",
+                        selectedAgent
+                          ? "bg-foreground/10 text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {selectedAgent ? selectedAgent.name : "No agent"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled
+                      className="flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground opacity-60"
+                    >
+                      {getModelLabel(model)}
+                    </button>
+                  </>
+                )}
               </div>
 
               {isLoading && onStop ? (

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
 import { Check, Loader2, Zap, Building2, Sparkles } from "lucide-react"
 import { toast } from "sonner"
+import { BILLING_PLAN_LIST, type PlanId } from "@/lib/billing-plans"
 import { cn } from "@/lib/utils"
 import type { Subscription } from "@/lib/db/subscriptions"
 
@@ -12,57 +13,11 @@ type Props = {
   subscription: Subscription | null
 }
 
-const PLANS = [
-  {
-    id: "free",
-    name: "Starter",
-    description: "For individuals exploring AI-assisted audit workflows.",
-    price: { monthly: 0, annual: 0 },
-    icon: Sparkles,
-    features: [
-      "3 built-in agents",
-      "50 messages / month",
-      "Export to Markdown & text",
-      "Community support",
-    ],
-    highlighted: false,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    description: "For professionals running active audit engagements.",
-    price: { monthly: 49, annual: 39 },
-    icon: Zap,
-    features: [
-      "Unlimited built-in agents",
-      "Up to 10 custom agents",
-      "Unlimited messages",
-      "PDF, Markdown & text export",
-      "File upload in chat",
-      "Priority support",
-    ],
-    highlighted: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    description: "For teams and firms with advanced compliance requirements.",
-    price: { monthly: 149, annual: 119 },
-    icon: Building2,
-    features: [
-      "Everything in Pro",
-      "Unlimited custom agents",
-      "Team workspace",
-      "White-label option",
-      "API access",
-      "Dedicated onboarding",
-      "SLA & custom contracts",
-    ],
-    highlighted: false,
-  },
-] as const
-
-type PlanId = "free" | "pro" | "enterprise"
+const PLAN_ICONS = {
+  free: Sparkles,
+  pro: Zap,
+  enterprise: Building2,
+} as const
 
 export function BillingPage({ subscription }: Props) {
   const [interval, setInterval] = useState<"monthly" | "annual">("monthly")
@@ -150,10 +105,10 @@ export function BillingPage({ subscription }: Props) {
 
       {/* Plan cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {PLANS.map((plan) => {
+        {BILLING_PLAN_LIST.map((plan) => {
           const isCurrent = currentPlan === plan.id
           const price = plan.price[interval]
-          const Icon = plan.icon
+          const Icon = PLAN_ICONS[plan.id]
 
           return (
             <div
@@ -253,7 +208,7 @@ export function BillingPage({ subscription }: Props) {
               {/* CTA */}
               <button
                 type="button"
-                onClick={() => handleUpgrade(plan.id as PlanId)}
+                onClick={() => handleUpgrade(plan.id)}
                 disabled={
                   isCurrent || plan.id === "free" || loading === plan.id
                 }

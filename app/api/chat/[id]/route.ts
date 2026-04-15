@@ -1,10 +1,12 @@
 import { revalidatePath } from "next/cache"
 import { anthropic } from "@ai-sdk/anthropic"
+import { devToolsMiddleware } from "@ai-sdk/devtools"
 import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
+  wrapLanguageModel,
   type UIMessage,
 } from "ai"
 import {
@@ -19,6 +21,7 @@ import { getChat } from "@/lib/db/chats"
 import { createMessage } from "@/lib/db/messages"
 import { resolveModelId, supportsReasoningForModel } from "@/lib/models"
 import { createServiceClient } from "@/lib/supabase/service"
+import { recordUsageEvent } from "@/lib/db/usage-events"
 import type { Json } from "@/types/supabase"
 
 export const maxDuration = 60
@@ -30,14 +33,25 @@ const STREAM_RESPONSE_HEADERS = {
 } as const
 
 const PENDING_ASSISTANT_CONTENT = "__vera_pending_response__"
+const LEGACY_PENDING_ASSISTANT_CONTENT = "__PENDING__"
 const DEV_AUTH_BYPASS =
   process.env.NODE_ENV !== "production" &&
   process.env.VERA_DEV_BYPASS_AUTH === "true"
+const AI_DEVTOOLS_ENABLED =
+  process.env.NODE_ENV !== "production" &&
+  process.env.VERA_ENABLE_AI_DEVTOOLS !== "false"
 
 const NO_EMOJI_SUFFIX =
   "\n\nIMPORTANT: Never use emoji characters in your responses. Use clear, professional language only."
 
 const DEFAULT_SYSTEM_PROMPT = `You are Vera, an AI assistant built for auditors and professional services teams. You help with audit analysis, workpaper review, risk assessment, financial disclosure drafting, compliance checking, and related professional tasks. Keep responses precise and professional. If asked who you are, introduce yourself as Vera - do not mention Claude, Anthropic, or any other AI product.`
+
+function isPendingAssistantContent(value: string | null | undefined): boolean {
+  return (
+    value === PENDING_ASSISTANT_CONTENT ||
+    value === LEGACY_PENDING_ASSISTANT_CONTENT
+  )
+}
 
 type ChatRequestBody = {
   messages?: UIMessage[]
@@ -81,6 +95,31 @@ function getLastUserMessage(messages: UIMessage[]): UIMessage | null {
   }
 
   return null
+}
+
+function withOverriddenLastUserText(
+  messages: UIMessage[],
+  userText: string
+): UIMessage[] {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (message?.role !== "user") continue
+
+    const updatedParts = message.parts.some((part) => part.type === "text")
+      ? message.parts.map((part) =>
+          part.type === "text" ? { ...part, text: userText } : part
+        )
+      : ([
+          ...message.parts,
+          { type: "text", text: userText },
+        ] as UIMessage["parts"])
+
+    return messages.map((entry, index) =>
+      index === i ? { ...entry, parts: updatedParts } : entry
+    )
+  }
+
+  return messages
 }
 
 function getLastUserTurn(messages: UIMessage[]): {
@@ -294,20 +333,72 @@ export async function POST(
 
   // Canonicalize to the persisted DB user message id when available so refresh
   // replays and in-flight retries resolve to the same logical turn key.
-  let resolvedTurnKey = lastUserTurn.turnKey
-  const { data: persistedUserMessage } = await supabase
+  // Strip :user/:assistant suffixes that arise from synthetic IDs in getMessages().
+  const rawTurnKey = lastUserTurn.turnKey.replace(/:(user|assistant)$/, "")
+  let resolvedTurnKey = rawTurnKey
+  const { data: persistedUserMessageByRawId } = await supabase
     .from("messages")
     .select("id")
     .eq("chat_id", chat.id)
     .eq("user_id", userId)
     .eq("role", "user")
-    .eq("content", lastUserTurn.text)
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .eq("id", rawTurnKey)
     .maybeSingle()
 
-  if (persistedUserMessage?.id) {
-    resolvedTurnKey = persistedUserMessage.id
+  const { data: existingTurnPairByRawKey } = await bookkeepingSupabase
+    .from("chat_turn_pairs")
+    .select("turn_key")
+    .eq("chat_id", chat.id)
+    .eq("user_id", userId)
+    .eq("turn_key", rawTurnKey)
+    .maybeSingle()
+
+  let persistedUserMessage = persistedUserMessageByRawId
+
+  if (persistedUserMessageByRawId?.id) {
+    resolvedTurnKey = persistedUserMessageByRawId.id
+  } else if (existingTurnPairByRawKey?.turn_key) {
+    resolvedTurnKey = existingTurnPairByRawKey.turn_key
+  } else if (isRegenerationRequest) {
+    // Regeneration can arrive with synthetic IDs from the client. Only in that
+    // case, use a content-based fallback to recover the best matching turn.
+    const { data: persistedUserMessageByContent } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("chat_id", chat.id)
+      .eq("user_id", userId)
+      .eq("role", "user")
+      .eq("content", lastUserTurn.text)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (persistedUserMessageByContent?.id) {
+      resolvedTurnKey = persistedUserMessageByContent.id
+      persistedUserMessage = persistedUserMessageByContent
+    }
+  }
+
+  const effectiveLastUserText = lastUserTurn.text
+
+  if (isRegenerationRequest) {
+    const { data: pendingPairForContent } = await bookkeepingSupabase
+      .from("chat_turn_pairs")
+      .select("turn_key")
+      .eq("chat_id", chat.id)
+      .eq("user_id", userId)
+      .eq("user_content", effectiveLastUserText)
+      .in("assistant_content", [
+        PENDING_ASSISTANT_CONTENT,
+        LEGACY_PENDING_ASSISTANT_CONTENT,
+      ])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (pendingPairForContent?.turn_key) {
+      resolvedTurnKey = pendingPairForContent.turn_key
+    }
   }
 
   let transientUserMessageId: string | null = null
@@ -345,7 +436,7 @@ export async function POST(
   if (
     !pairPersistenceUnavailable &&
     existingPair &&
-    existingPair.assistant_content !== PENDING_ASSISTANT_CONTENT &&
+    !isPendingAssistantContent(existingPair.assistant_content) &&
     !isRegenerationRequest
   ) {
     return createReplayTurnResponse(
@@ -362,7 +453,7 @@ export async function POST(
         chat_id: chat.id,
         user_id: userId,
         turn_key: resolvedTurnKey,
-        user_content: lastUserTurn.text,
+        user_content: effectiveLastUserText,
         assistant_content: PENDING_ASSISTANT_CONTENT,
       })
 
@@ -386,7 +477,7 @@ export async function POST(
       if (
         isConflict &&
         latestPair &&
-        latestPair.assistant_content !== PENDING_ASSISTANT_CONTENT
+        !isPendingAssistantContent(latestPair.assistant_content)
       ) {
         return createReplayTurnResponse(
           latestPair.assistant_content,
@@ -396,12 +487,16 @@ export async function POST(
       }
 
       if (isConflict) {
-        return createEmptyTurnResponse("claim-missed")
+        // Conflict means another request already claimed this turn. Return
+        // already-pending (instead of claim-missed) so the client waits/retries
+        // without surfacing a dead-state error.
+        return createEmptyTurnResponse("already-pending")
       }
     }
   } else if (
     !pairPersistenceUnavailable &&
-    existingPair?.assistant_content === PENDING_ASSISTANT_CONTENT
+    isPendingAssistantContent(existingPair?.assistant_content) &&
+    !isRegenerationRequest
   ) {
     return createEmptyTurnResponse("already-pending")
   }
@@ -413,7 +508,7 @@ export async function POST(
     if (
       !pairPersistenceUnavailable &&
       existingPair?.assistant_content &&
-      existingPair.assistant_content !== PENDING_ASSISTANT_CONTENT
+      !isPendingAssistantContent(existingPair.assistant_content)
     ) {
       return createReplayTurnResponse(
         existingPair.assistant_content,
@@ -441,7 +536,7 @@ export async function POST(
       latest?.role === "assistant" &&
       typeof latest.content === "string" &&
       previous?.role === "user" &&
-      previous.content === lastUserTurn.text
+      previous.content === effectiveLastUserText
     ) {
       return createReplayTurnResponse(
         latest.content,
@@ -452,7 +547,7 @@ export async function POST(
 
     if (
       latest?.role === "user" &&
-      latest.content === lastUserTurn.text &&
+      latest.content === effectiveLastUserText &&
       lastUserTurn.turnKey === latest.id
     ) {
       return createEmptyTurnResponse("already-pending-legacy")
@@ -473,9 +568,17 @@ export async function POST(
     (selectedAgent?.system_prompt ?? DEFAULT_SYSTEM_PROMPT) + NO_EMOJI_SUFFIX
   const resolvedModelId = resolveModelId(chat.model)
   const reasoningEnabledForModel = supportsReasoningForModel(resolvedModelId)
+  const usageEventKey = crypto.randomUUID()
 
   const result = streamText({
-    model: anthropic(resolvedModelId),
+    // Anthropic can return transient overload responses; retry to keep UX stable.
+    maxRetries: 4,
+    model: AI_DEVTOOLS_ENABLED
+      ? wrapLanguageModel({
+          model: anthropic(resolvedModelId),
+          middleware: devToolsMiddleware(),
+        })
+      : anthropic(resolvedModelId),
     system: systemPrompt,
     messages: await convertToModelMessages(
       await prepareMessagesForModel(generationMessages, bookkeepingSupabase)
@@ -494,7 +597,7 @@ export async function POST(
     headers: STREAM_RESPONSE_HEADERS,
     onFinish: async ({ messages }) => {
       const lastUserText =
-        lastUserTurn?.text ?? getLastUserText(generationMessages)
+        effectiveLastUserText || getLastUserText(generationMessages)
       const assistantMessages = messages
         .filter((m) => isChatRole(m.role) && m.role === "assistant")
         .map((m) => getTextFromParts(m.parts).trim())
@@ -505,11 +608,12 @@ export async function POST(
       let pairPersisted = false
 
       if (lastAssistantText && !pairPersistenceUnavailable) {
+        const persistedUserContent = lastUserTurn.text
         const pairPayload = {
           chat_id: chat.id,
           user_id: userId,
           turn_key: resolvedTurnKey,
-          user_content: lastUserTurn.text,
+          user_content: persistedUserContent,
           assistant_content: lastAssistantText,
           user_parts: (lastUserPersistedParts ?? null) as Json | null,
         }
@@ -528,7 +632,7 @@ export async function POST(
                 chat_id: chat.id,
                 user_id: userId,
                 turn_key: resolvedTurnKey,
-                user_content: lastUserTurn.text,
+                user_content: persistedUserContent,
                 assistant_content: lastAssistantText,
               },
               {
@@ -544,7 +648,7 @@ export async function POST(
             chat_id: chat.id,
             user_id: userId,
             turn_key: resolvedTurnKey,
-            user_content: lastUserTurn.text,
+            user_content: persistedUserContent,
             assistant_content: lastAssistantText,
             reason: `pair_upsert_error:${pairPersistError.message}`,
           })
@@ -554,6 +658,18 @@ export async function POST(
         }
 
         if (pairPersisted) {
+          await bookkeepingSupabase
+            .from("chat_turn_pairs")
+            .delete()
+            .eq("chat_id", chat.id)
+            .eq("user_id", userId)
+            .eq("user_content", persistedUserContent)
+            .in("assistant_content", [
+              PENDING_ASSISTANT_CONTENT,
+              LEGACY_PENDING_ASSISTANT_CONTENT,
+            ])
+            .neq("turn_key", resolvedTurnKey)
+
           if (transientUserMessageId) {
             await supabase
               .from("messages")
@@ -575,7 +691,10 @@ export async function POST(
           .eq("chat_id", chat.id)
           .eq("user_id", userId)
           .eq("turn_key", resolvedTurnKey)
-          .eq("assistant_content", PENDING_ASSISTANT_CONTENT)
+          .in("assistant_content", [
+            PENDING_ASSISTANT_CONTENT,
+            LEGACY_PENDING_ASSISTANT_CONTENT,
+          ])
       }
 
       const { data: recent } = await supabase
@@ -612,6 +731,20 @@ export async function POST(
 
       if (lastAssistantText && !hasAssistantForCurrentTurn) {
         await createMessage(chat.id, userId, "assistant", lastAssistantText)
+      }
+
+      if (lastAssistantText) {
+        await recordUsageEvent({
+          eventKey: usageEventKey,
+          userId,
+          chatId: chat.id,
+          turnKey: resolvedTurnKey,
+          source: "chat",
+          model: resolvedModelId,
+          requestTrigger,
+          userMessageChars: lastUserText.length,
+          assistantMessageChars: lastAssistantText.length,
+        })
       }
 
       revalidatePath("/dashboard", "layout")

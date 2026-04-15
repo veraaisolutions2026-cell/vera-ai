@@ -85,7 +85,7 @@ pnpm build
 - `pnpm lint` - run ESLint
 - `pnpm typecheck` - TypeScript check without emit
 - `pnpm format` - Prettier for `ts/tsx`
-- `pnpm update-types` - regenerate Supabase types into `types/supabase.ts`
+- `pnpm update-types` - regenerate Supabase types into `types/supabase.ts` using the pinned Supabase CLI version
 
 ## 4. Project Structure
 
@@ -192,11 +192,22 @@ Billing endpoints:
 - `/api/stripe/create-portal`
 - `/api/stripe/webhook`
 
+Billing / usage SQL setup:
+
+- `sql/billing-tier-setup.sql`
+- `sql/usage-tracking-setup.sql`
+
 You must:
 
 1. Set Stripe environment variables.
 2. Expose local webhook endpoint (for local testing).
 3. Configure webhook signing secret as `STRIPE_WEBHOOK_SECRET`.
+
+Usage tracking notes:
+
+- Durable request usage should come from `usage_events` (append-only ledger).
+- `chat_turn_pairs` remains a safe fallback source for historical completed chat turns.
+- Apply `sql/usage-tracking-setup.sql` in Supabase before relying on request-based usage analytics in production.
 
 ## 10. Model Configuration
 

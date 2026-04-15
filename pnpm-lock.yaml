@@ -123,6 +123,9 @@ importers:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
     devDependencies:
+      '@ai-sdk/devtools':
+        specifier: ^0.0.15
+        version: 0.0.15
       '@eslint/eslintrc':
         specifier: ^3
         version: 3.3.5
@@ -154,8 +157,8 @@ importers:
         specifier: ^0.7.2
         version: 0.7.2(prettier@3.8.2)
       supabase:
-        specifier: ^2.89.1
-        version: 2.89.1
+        specifier: ^2.90.0
+        version: 2.90.0
       tailwindcss:
         specifier: ^4.2.1
         version: 4.2.2
@@ -170,6 +173,10 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/devtools@0.0.15':
+    resolution: {integrity: sha512-zRF+ClRh0fcmvoKclOcmy2hmTDN48ZfHD3y1fC3Lx0vIYaX55uywssiyaA18WlV2mD+N9H4fgPxq+9JeGfMGlQ==}
+    hasBin: true
 
   '@ai-sdk/gateway@3.0.95':
     resolution: {integrity: sha512-ZmUNNbZl3V42xwQzPaNUi+s8eqR2lnrxf0bvB6YbLXpLjHYv0k2Y78t12cNOfY0bxGeuVVTLyk856uLuQIuXEQ==}
@@ -4572,8 +4579,8 @@ packages:
       babel-plugin-macros:
         optional: true
 
-  supabase@2.89.1:
-    resolution: {integrity: sha512-OsT1kIC2YutgSj4iy+CD0jRkfxlULB5K48uCxGTMNXcnX4IEQ9gVrQ05QQDuBkX1uVEH6E6itrs3HjQs5u/uVw==}
+  supabase@2.90.0:
+    resolution: {integrity: sha512-1CQAmrARl8oGsKKGl4LhF64qkPmdSMqw77EIhAdx/O5bly1CfnoXHwccGUiBImqlXHwQ3SvYZs8WMRm52V7VEQ==}
     engines: {npm: '>=8'}
     hasBin: true
 
@@ -4984,6 +4991,12 @@ snapshots:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@4.3.6)
       zod: 4.3.6
+
+  '@ai-sdk/devtools@0.0.15':
+    dependencies:
+      '@ai-sdk/provider': 3.0.8
+      '@hono/node-server': 1.19.13(hono@4.12.12)
+      hono: 4.12.12
 
   '@ai-sdk/gateway@3.0.95(zod@4.3.6)':
     dependencies:
@@ -9918,7 +9931,7 @@ snapshots:
     optionalDependencies:
       '@babel/core': 7.29.0
 
-  supabase@2.89.1:
+  supabase@2.90.0:
     dependencies:
       bin-links: 6.0.0
       https-proxy-agent: 9.0.0

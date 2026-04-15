@@ -5,6 +5,14 @@ import type { Json } from "@/types/supabase"
 import type { PersistedMessageParts } from "@/lib/chat-attachments"
 
 const PENDING_ASSISTANT_CONTENT = "__vera_pending_response__"
+const LEGACY_PENDING_ASSISTANT_CONTENT = "__PENDING__"
+
+function isPendingAssistantContent(value: string | null | undefined): boolean {
+  return (
+    value === PENDING_ASSISTANT_CONTENT ||
+    value === LEGACY_PENDING_ASSISTANT_CONTENT
+  )
+}
 
 export async function getMessages(
   chatId: string,
@@ -33,7 +41,7 @@ export async function getMessages(
 
   const legacyMessages = (messageRows as Message[]) ?? []
   const turnPairs = (pairRows ?? []).filter(
-    (pair) => pair.assistant_content !== PENDING_ASSISTANT_CONTENT
+    (pair) => !isPendingAssistantContent(pair.assistant_content)
   )
 
   if ((messageError || pairError) && !turnPairs.length) return []
@@ -79,6 +87,7 @@ export async function getMessages(
   const pairedSignatures = pairedMessages.map(
     (message) => `${message.role}:${message.content}`
   )
+  const pairedSignatureSet = new Set(pairedSignatures)
 
   let overlap = 0
   const maxOverlap = Math.min(legacyMessages.length, pairedMessages.length)
@@ -96,10 +105,17 @@ export async function getMessages(
     return pairedMessages
   }
 
+  const dedupedBeforePairs = beforePairs.filter(
+    (message) => !pairedSignatureSet.has(`${message.role}:${message.content}`)
+  )
+  const dedupedAfterPairs = afterPairs.filter(
+    (message) => !pairedSignatureSet.has(`${message.role}:${message.content}`)
+  )
+
   return [
-    ...beforePairs.slice(0, beforePairs.length - overlap),
+    ...dedupedBeforePairs.slice(0, dedupedBeforePairs.length - overlap),
     ...pairedMessages,
-    ...afterPairs,
+    ...dedupedAfterPairs,
   ]
 }
 

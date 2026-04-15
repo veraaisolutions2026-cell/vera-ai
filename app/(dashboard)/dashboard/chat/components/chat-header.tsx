@@ -158,6 +158,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export function ChatHeader({ chatId, initialTitle, messages }: Props) {
+  const [isClientReady, setIsClientReady] = useState(false)
   const [exporting, setExporting] = useState<string | null>(null)
   const [title, setTitle] = useState<string>("Untitled")
   const [isTitleLoading, setIsTitleLoading] = useState(false)
@@ -169,6 +170,10 @@ export function ChatHeader({ chatId, initialTitle, messages }: Props) {
 
   const titleSeed = useMemo(() => buildTitleSeed(messages), [messages])
   const baseFile = useMemo(() => sanitizeFileName(title), [title])
+
+  useEffect(() => {
+    setIsClientReady(true)
+  }, [])
 
   useEffect(() => {
     if (sharedTitle?.trim()) {
@@ -306,44 +311,56 @@ export function ChatHeader({ chatId, initialTitle, messages }: Props) {
         )}
       </div>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={!messages.length}
-            className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground ring-1 ring-border transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-muted data-[state=open]:text-foreground"
-            aria-label="Export conversation"
-          >
-            {exporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            Export
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
-          {FORMATS.map((format) => {
-            const Icon = format.icon
-            const isLoading = exporting === format.id
-            return (
-              <DropdownMenuItem
-                key={format.id}
-                disabled={Boolean(exporting)}
-                onClick={() => void handleExport(format.id)}
-                className="flex items-center gap-2"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Icon className="h-3.5 w-3.5" />
-                )}
-                <span>{format.label}</span>
-              </DropdownMenuItem>
-            )
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {isClientReady ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={!messages.length}
+              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground ring-1 ring-border transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-muted data-[state=open]:text-foreground sm:h-8"
+              aria-label="Export conversation"
+            >
+              {exporting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              Export
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 sm:w-44">
+            {FORMATS.map((format) => {
+              const Icon = format.icon
+              const isLoading = exporting === format.id
+              return (
+                <DropdownMenuItem
+                  key={format.id}
+                  disabled={Boolean(exporting)}
+                  onClick={() => void handleExport(format.id)}
+                  className="flex items-center gap-2 py-2 text-sm sm:py-1.5"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Icon className="h-3.5 w-3.5" />
+                  )}
+                  <span>{format.label}</span>
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <button
+          type="button"
+          disabled
+          className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground opacity-50 ring-1 ring-border sm:h-8"
+          aria-label="Export conversation"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export
+        </button>
+      )}
     </div>
   )
 }

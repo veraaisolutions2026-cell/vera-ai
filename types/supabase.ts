@@ -64,6 +64,7 @@ export type Database = {
           features: Json
           monthly_message_limit: number | null
           monthly_price_usd: number
+          monthly_request_limit: number | null
           plan: string
           updated_at: string
         }
@@ -74,6 +75,7 @@ export type Database = {
           features?: Json
           monthly_message_limit?: number | null
           monthly_price_usd: number
+          monthly_request_limit?: number | null
           plan: string
           updated_at?: string
         }
@@ -84,6 +86,7 @@ export type Database = {
           features?: Json
           monthly_message_limit?: number | null
           monthly_price_usd?: number
+          monthly_request_limit?: number | null
           plan?: string
           updated_at?: string
         }
@@ -312,6 +315,63 @@ export type Database = {
           key?: string
           updated_at?: string | null
           value?: string
+        }
+        Relationships: []
+      }
+      usage_events: {
+        Row: {
+          assistant_message_chars: number
+          billing_interval: string | null
+          chat_id: string | null
+          created_at: string
+          event_key: string
+          event_type: string
+          metadata: Json
+          model: string
+          occurred_at: string
+          plan: string
+          request_count: number
+          request_trigger: string | null
+          source: string
+          turn_key: string | null
+          user_id: string
+          user_message_chars: number
+        }
+        Insert: {
+          assistant_message_chars?: number
+          billing_interval?: string | null
+          chat_id?: string | null
+          created_at?: string
+          event_key: string
+          event_type: string
+          metadata?: Json
+          model: string
+          occurred_at?: string
+          plan: string
+          request_count?: number
+          request_trigger?: string | null
+          source: string
+          turn_key?: string | null
+          user_id: string
+          user_message_chars?: number
+        }
+        Update: {
+          assistant_message_chars?: number
+          billing_interval?: string | null
+          chat_id?: string | null
+          created_at?: string
+          event_key?: string
+          event_type?: string
+          metadata?: Json
+          model?: string
+          occurred_at?: string
+          plan?: string
+          request_count?: number
+          request_trigger?: string | null
+          source?: string
+          turn_key?: string | null
+          user_id?: string
+          user_message_chars?: number
         }
         Relationships: []
       }

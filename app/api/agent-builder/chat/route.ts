@@ -1,10 +1,20 @@
 import { anthropic } from "@ai-sdk/anthropic"
-import { streamText, convertToModelMessages, type UIMessage } from "ai"
+import { devToolsMiddleware } from "@ai-sdk/devtools"
+import {
+  streamText,
+  convertToModelMessages,
+  wrapLanguageModel,
+  type UIMessage,
+} from "ai"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { recordUsageEvent } from "@/lib/db/usage-events"
 import { getAcaPrompt } from "@/lib/db/system-config"
 
 export const maxDuration = 60
+const AI_DEVTOOLS_ENABLED =
+  process.env.NODE_ENV !== "production" &&
+  process.env.VERA_ENABLE_AI_DEVTOOLS !== "false"
 
 const STREAM_RESPONSE_HEADERS = {
   "Transfer-Encoding": "chunked",
@@ -48,6 +58,18 @@ Icon selection guide (use these exact names):
 
 Category suggestions: Audit, Tax, Compliance, Finance, Advisory, Risk, Reporting, Research`
 
+function getTextFromParts(parts: UIMessage["parts"]): string {
+  let text = ""
+
+  for (const part of parts) {
+    if (part.type === "text") {
+      text += part.text
+    }
+  }
+
+  return text
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const {
@@ -63,9 +85,23 @@ export async function POST(req: Request) {
   const acaPrompt = await getAcaPrompt()
   const systemPrompt =
     (acaPrompt ?? DEFAULT_ACA_PROMPT) + TRAVERS_IDENTITY + NO_EMOJI_SUFFIX
+  const usageEventKey = crypto.randomUUID()
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === "user")
+  const latestUserText = latestUserMessage
+    ? getTextFromParts(latestUserMessage.parts).trim()
+    : ""
 
   const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
+    // Anthropic can return transient overload responses; retry to keep UX stable.
+    maxRetries: 4,
+    model: AI_DEVTOOLS_ENABLED
+      ? wrapLanguageModel({
+          model: anthropic("claude-sonnet-4-6"),
+          middleware: devToolsMiddleware(),
+        })
+      : anthropic("claude-sonnet-4-6"),
     system: systemPrompt,
     messages: await convertToModelMessages(messages),
     tools: {
@@ -145,5 +181,24 @@ export async function POST(req: Request) {
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
     headers: STREAM_RESPONSE_HEADERS,
+    onFinish: async ({ messages: resultMessages }) => {
+      const assistantText = resultMessages
+        .filter((message) => message.role === "assistant")
+        .map((message) => getTextFromParts(message.parts).trim())
+        .filter(Boolean)
+        .at(-1)
+
+      if (!assistantText) return
+
+      await recordUsageEvent({
+        eventKey: usageEventKey,
+        userId: user.id,
+        source: "agent-builder",
+        model: "claude-sonnet-4-6",
+        requestTrigger: "submit-message",
+        userMessageChars: latestUserText.length,
+        assistantMessageChars: assistantText.length,
+      })
+    },
   })
 }

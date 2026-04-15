@@ -1,33 +1,31 @@
 import { createClient } from "@/lib/supabase/server"
-
-const PLAN_PRICE_USD = {
-  free: { monthly: 0, annual: 0 },
-  pro: { monthly: 49, annual: 39 },
-  enterprise: { monthly: 149, annual: 119 },
-} as const
-
-type Plan = "free" | "pro" | "enterprise"
+import { createServiceClient } from "@/lib/supabase/service"
+import {
+  formatApproximateRequests,
+  getBillingPlan,
+  getMonthlyUsageBudgetUsd,
+  type PlanId,
+} from "@/lib/billing-plans"
 
 type ActivityPoint = {
   date: string
-  chats: number
-  messages: number
+  requests: number
 }
 
 type SpendPoint = {
   date: string
   spend: number
-  messages: number
+  requests: number
 }
 
 export type UsageAnalytics = {
-  totalChats: number
-  totalMessages: number
-  monthMessages: number
+  totalRequests: number
+  monthRequests: number
   activeDaysLast14: number
-  plan: Plan
+  plan: PlanId
   status: string
-  estimatedMonthlySpend: number
+  monthlyUsageBudgetUsd: number
+  includedRequestsLabel: string
   activity: ActivityPoint[]
   spend: SpendPoint[]
 }
@@ -43,11 +41,91 @@ function dayLabel(date: Date): string {
   })
 }
 
-function monthlyPrice(plan: Plan, interval: string | null): number {
-  if (plan === "free") return 0
-  return interval === "annual"
-    ? PLAN_PRICE_USD[plan].annual
-    : PLAN_PRICE_USD[plan].monthly
+type UsageSource = {
+  totalRequests: number
+  monthRequests: number
+  recentRequestTimestamps: string[]
+}
+
+async function getUsageSource(
+  userId: string,
+  monthStartIso: string,
+  start14Iso: string
+): Promise<UsageSource> {
+  const service = createServiceClient()
+
+  const usageEventsQueries = await Promise.all([
+    service
+      .from("usage_events")
+      .select("event_key", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("event_type", "chat_request_completed"),
+    service
+      .from("usage_events")
+      .select("event_key", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("event_type", "chat_request_completed")
+      .gte("occurred_at", monthStartIso),
+    service
+      .from("usage_events")
+      .select("occurred_at")
+      .eq("user_id", userId)
+      .eq("event_type", "chat_request_completed")
+      .gte("occurred_at", start14Iso),
+  ])
+
+  const [totalRequestsResult, monthRequestsResult, recentRequestsResult] =
+    usageEventsQueries
+
+  const usageEventsAvailable = usageEventsQueries.every(
+    (result) => !result.error
+  )
+
+  if (usageEventsAvailable) {
+    return {
+      totalRequests: totalRequestsResult.count ?? 0,
+      monthRequests: monthRequestsResult.count ?? 0,
+      recentRequestTimestamps:
+        recentRequestsResult.data?.flatMap((row) =>
+          row.occurred_at ? [row.occurred_at] : []
+        ) ?? [],
+    }
+  }
+
+  const fallbackQueries = await Promise.all([
+    service
+      .from("chat_turn_pairs")
+      .select("turn_key", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .neq("assistant_content", "__vera_pending_response__")
+      .neq("assistant_content", "__PENDING__"),
+    service
+      .from("chat_turn_pairs")
+      .select("turn_key", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .neq("assistant_content", "__vera_pending_response__")
+      .neq("assistant_content", "__PENDING__")
+      .gte("created_at", monthStartIso),
+    service
+      .from("chat_turn_pairs")
+      .select("created_at")
+      .eq("user_id", userId)
+      .neq("assistant_content", "__vera_pending_response__")
+      .neq("assistant_content", "__PENDING__")
+      .gte("created_at", start14Iso),
+  ])
+
+  const [fallbackTotalResult, fallbackMonthResult, fallbackRecentResult] =
+    fallbackQueries
+
+  return {
+    totalRequests: fallbackTotalResult.count ?? 0,
+    monthRequests: fallbackMonthResult.count ?? 0,
+    recentRequestTimestamps:
+      fallbackRecentResult.data?.flatMap((row) =>
+        row.created_at ? [row.created_at] : []
+      ) ?? [],
+  }
 }
 
 export async function getUsageAnalytics(
@@ -62,38 +140,11 @@ export async function getUsageAnalytics(
   start14.setDate(start14.getDate() - 13)
 
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  const monthStartIso = monthStart.toISOString()
+  const start14Iso = start14.toISOString()
 
-  const [
-    totalChatsResult,
-    totalMessagesResult,
-    monthMessagesResult,
-    recentChatsResult,
-    recentMessagesResult,
-    subscriptionResult,
-  ] = await Promise.all([
-    supabase
-      .from("chats")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId),
-    supabase
-      .from("messages")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId),
-    supabase
-      .from("messages")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .gte("created_at", monthStart.toISOString()),
-    supabase
-      .from("chats")
-      .select("created_at")
-      .eq("user_id", userId)
-      .gte("created_at", start14.toISOString()),
-    supabase
-      .from("messages")
-      .select("created_at")
-      .eq("user_id", userId)
-      .gte("created_at", start14.toISOString()),
+  const [usageSource, subscriptionResult] = await Promise.all([
+    getUsageSource(userId, monthStartIso, start14Iso),
     supabase
       .from("subscriptions")
       .select("plan, status, billing_interval")
@@ -108,37 +159,24 @@ export async function getUsageAnalytics(
     const key = dayKey(current)
     buckets[key] = {
       date: dayLabel(current),
-      chats: 0,
-      messages: 0,
+      requests: 0,
     }
   }
 
-  recentChatsResult.data?.forEach((row) => {
-    const createdAt = row.created_at
+  usageSource.recentRequestTimestamps.forEach((createdAt) => {
     if (!createdAt) return
     const key = dayKey(new Date(createdAt))
-    if (buckets[key]) buckets[key].chats += 1
-  })
-
-  recentMessagesResult.data?.forEach((row) => {
-    const createdAt = row.created_at
-    if (!createdAt) return
-    const key = dayKey(new Date(createdAt))
-    if (buckets[key]) buckets[key].messages += 1
+    if (buckets[key]) buckets[key].requests += 1
   })
 
   const activity = Object.values(buckets)
-  const activeDaysLast14 = activity.filter(
-    (point) => point.chats > 0 || point.messages > 0
-  ).length
+  const activeDaysLast14 = activity.filter((point) => point.requests > 0).length
 
-  const plan =
-    subscriptionResult.data?.plan === "pro" ||
-    subscriptionResult.data?.plan === "enterprise"
-      ? subscriptionResult.data.plan
-      : "free"
-
-  const estimatedMonthlySpend = monthlyPrice(
+  const plan = getBillingPlan(subscriptionResult.data?.plan).id
+  const includedRequestsLabel = formatApproximateRequests(
+    getBillingPlan(plan).approximateMonthlyRequests
+  )
+  const monthlyUsageBudgetUsd = getMonthlyUsageBudgetUsd(
     plan,
     subscriptionResult.data?.billing_interval ?? null
   )
@@ -148,7 +186,7 @@ export async function getUsageAnalytics(
     today.getMonth() + 1,
     0
   ).getDate()
-  const dailySpend = daysInMonth > 0 ? estimatedMonthlySpend / daysInMonth : 0
+  const dailySpend = daysInMonth > 0 ? monthlyUsageBudgetUsd / daysInMonth : 0
 
   let cumulativeSpend = 0
   const spend = activity.map((point) => {
@@ -156,18 +194,18 @@ export async function getUsageAnalytics(
     return {
       date: point.date,
       spend: Number(cumulativeSpend.toFixed(2)),
-      messages: point.messages,
+      requests: point.requests,
     }
   })
 
   return {
-    totalChats: totalChatsResult.count ?? 0,
-    totalMessages: totalMessagesResult.count ?? 0,
-    monthMessages: monthMessagesResult.count ?? 0,
+    totalRequests: usageSource.totalRequests,
+    monthRequests: usageSource.monthRequests,
     activeDaysLast14,
     plan,
     status: subscriptionResult.data?.status ?? "active",
-    estimatedMonthlySpend,
+    monthlyUsageBudgetUsd,
+    includedRequestsLabel,
     activity,
     spend,
   }

@@ -46,6 +46,12 @@ export function AdminShell({ user, children }: Props) {
           "fixed inset-y-0 left-0 z-40 w-60 transition-transform duration-200 md:hidden",
           mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        onClickCapture={(event) => {
+          const target = event.target as HTMLElement
+          if (target.closest("a")) {
+            setMobileSidebarOpen(false)
+          }
+        }}
       >
         <AdminSidebar
           user={user}
@@ -80,7 +86,7 @@ export function AdminShell({ user, children }: Props) {
         </AnimatePresence>
       </motion.div>
 
-      <main className="mt-12 mr-2 mb-2 ml-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-border md:mt-2 md:ml-0">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background pt-12 md:mt-2 md:mr-2 md:mb-2 md:ml-0 md:rounded-2xl md:bg-card md:pt-0 md:shadow-sm md:ring-1 md:ring-border">
         <RouteTransition>{children}</RouteTransition>
       </main>
     </div>

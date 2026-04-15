@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, type ReactNode } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { Check, Copy, Loader2, RefreshCw } from "lucide-react"
+import { Check, Copy, Info, Loader2, Pencil, RefreshCw, X } from "lucide-react"
 import { toast } from "sonner"
 import { ShimmeringText } from "@/components/ui/shimmering-text"
 import { Button } from "@/components/ui/button"
@@ -276,6 +276,8 @@ type Props = {
   isStreaming?: boolean
   revealOnMount?: boolean
   onRetry?: () => void
+  onUserRetry?: () => void
+  onUserEdit?: (messageId: string, content: string) => Promise<void> | void
 }
 
 const STREAM_REVEAL_INTERVAL_MS = 30
@@ -292,9 +294,14 @@ export function ChatMessage({
   isStreaming,
   revealOnMount = false,
   onRetry,
+  onUserRetry,
+  onUserEdit,
 }: Props) {
   const reduceMotion = useReducedMotion()
   const [liveContent, setLiveContent] = useState("")
+  const [isEditingUserMessage, setIsEditingUserMessage] = useState(false)
+  const [userDraft, setUserDraft] = useState(content)
+  const [isSavingUserEdit, setIsSavingUserEdit] = useState(false)
   // true while the reveal interval is actively draining the buffer, so the
   // non-streaming render keeps using liveContent instead of snapping to the
   // full content string.
@@ -310,6 +317,12 @@ export function ChatMessage({
     setLiveContent("")
     setRevealInProgress(false)
   }, [messageId])
+
+  useEffect(() => {
+    if (!isEditingUserMessage) {
+      setUserDraft(content)
+    }
+  }, [content, isEditingUserMessage])
 
   useEffect(() => {
     if (role !== "assistant") return
@@ -376,9 +389,29 @@ export function ChatMessage({
   }, [isStreaming, revealOnMount, role])
 
   if (role === "user") {
+    const canEdit = Boolean(messageId && onUserEdit)
+
+    async function handleSaveEdit() {
+      if (!messageId || !onUserEdit) return
+
+      const trimmed = userDraft.trim()
+      if (!trimmed || trimmed === content.trim()) {
+        setIsEditingUserMessage(false)
+        return
+      }
+
+      setIsSavingUserEdit(true)
+      try {
+        await onUserEdit(messageId, trimmed)
+        setIsEditingUserMessage(false)
+      } finally {
+        setIsSavingUserEdit(false)
+      }
+    }
+
     return (
       <div className="group/message flex justify-end">
-        <div className="flex max-w-[80%] flex-col items-end">
+        <div className="flex w-full max-w-[85%] flex-col items-end">
           {attachments.length > 0 && (
             <Attachments variant="inline" className="mb-2 justify-end">
               {attachments.map((attachment) => (
@@ -389,9 +422,104 @@ export function ChatMessage({
               ))}
             </Attachments>
           )}
-          <div className="rounded-2xl rounded-br-sm bg-foreground/8 px-4 py-2.5 text-sm leading-relaxed">
-            {content}
-          </div>
+          {isEditingUserMessage ? (
+            <div className="w-full rounded-2xl rounded-br-sm border border-border/60 bg-card px-3 py-3">
+              <textarea
+                value={userDraft}
+                onChange={(event) => setUserDraft(event.target.value)}
+                rows={3}
+                className="min-h-20 w-full resize-y rounded-xl border border-border/60 bg-background px-3 py-2 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-ring/50"
+              />
+              <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-border/60 bg-muted/25 px-2.5 py-2">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Your current prompt and assistant response will be
+                  overwritten.
+                </p>
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserDraft(content)
+                    setIsEditingUserMessage(false)
+                  }}
+                  className="flex h-8 items-center gap-1.5 rounded-full border border-border/60 px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  disabled={isSavingUserEdit}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveEdit()}
+                  className="flex h-8 items-center gap-1.5 rounded-full bg-foreground px-3 text-xs font-medium text-background transition-opacity hover:opacity-85"
+                  disabled={isSavingUserEdit}
+                >
+                  {isSavingUserEdit ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl rounded-br-sm bg-foreground/8 px-4 py-2.5 text-sm leading-relaxed">
+              {content}
+            </div>
+          )}
+
+          {!isEditingUserMessage && (
+            <div className="mt-2 flex items-center gap-0.5 opacity-100 transition-opacity md:opacity-0 md:group-hover/message:opacity-100 md:focus-within:opacity-100">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(content)
+                      toast.success("Copied to clipboard")
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-foreground/8 hover:text-foreground"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copy</TooltipContent>
+              </Tooltip>
+
+              {onUserRetry && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onUserRetry()}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-foreground/8 hover:text-foreground"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Retry</TooltipContent>
+                </Tooltip>
+              )}
+
+              {canEdit && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingUserMessage(true)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-foreground/8 hover:text-foreground"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
       </div>
     )

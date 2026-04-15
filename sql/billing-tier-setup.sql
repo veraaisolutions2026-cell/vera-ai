@@ -85,6 +85,7 @@ create table if not exists public.billing_tiers (
   monthly_price_usd integer not null,
   annual_price_usd integer not null,
   monthly_message_limit integer,
+  monthly_request_limit integer,
   custom_agent_limit integer,
   features jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now(),
@@ -97,6 +98,7 @@ insert into public.billing_tiers (
   monthly_price_usd,
   annual_price_usd,
   monthly_message_limit,
+  monthly_request_limit,
   custom_agent_limit,
   features,
   updated_at
@@ -108,8 +110,9 @@ values
     0,
     0,
     50,
+    40,
     0,
-    '["3 built-in agents", "50 messages / month", "Export to Markdown & text", "Community support"]'::jsonb,
+    '["3 built-in agents", "About 40 requests / month", "Export to Markdown & text", "Community support"]'::jsonb,
     now()
   ),
   (
@@ -118,8 +121,9 @@ values
     49,
     39,
     null,
+    500,
     10,
-    '["Unlimited built-in agents", "Up to 10 custom agents", "Unlimited messages", "PDF/Markdown/Text export", "File uploads", "Priority support"]'::jsonb,
+    '["Unlimited built-in agents", "Up to 10 custom agents", "About 500 requests / month", "PDF/Markdown/Text export", "File uploads", "Priority support"]'::jsonb,
     now()
   ),
   (
@@ -128,8 +132,9 @@ values
     149,
     119,
     null,
+    1500,
     null,
-    '["Everything in Pro", "Unlimited custom agents", "Team workspace", "White-label", "API access", "Dedicated onboarding", "SLA contracts"]'::jsonb,
+    '["Everything in Pro", "Unlimited custom agents", "About 1,500 requests / month", "Team workspace", "White-label", "API access", "Dedicated onboarding", "SLA contracts"]'::jsonb,
     now()
   )
 on conflict (plan) do update
@@ -138,6 +143,7 @@ set
   monthly_price_usd = excluded.monthly_price_usd,
   annual_price_usd = excluded.annual_price_usd,
   monthly_message_limit = excluded.monthly_message_limit,
+  monthly_request_limit = excluded.monthly_request_limit,
   custom_agent_limit = excluded.custom_agent_limit,
   features = excluded.features,
   updated_at = now();
