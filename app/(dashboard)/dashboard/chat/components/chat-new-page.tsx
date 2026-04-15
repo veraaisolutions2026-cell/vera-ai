@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
@@ -48,9 +48,11 @@ type Props = {
 
 export function ChatNewPage({ userName, agents }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const modelFromQuery = searchParams.get("model")
   const [input, setInput] = useState("")
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
-  const [model, setModel] = useState("claude-sonnet-4-6")
+  const [model, setModel] = useState(modelFromQuery ?? "claude-sonnet-4-6")
   const [isStarting, setIsStarting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)

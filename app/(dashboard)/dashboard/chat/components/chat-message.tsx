@@ -276,7 +276,6 @@ type Props = {
   isStreaming?: boolean
   revealOnMount?: boolean
   onRetry?: () => void
-  onUserRetry?: () => void
   onUserEdit?: (messageId: string, content: string) => Promise<void> | void
 }
 
@@ -294,7 +293,6 @@ export function ChatMessage({
   isStreaming,
   revealOnMount = false,
   onRetry,
-  onUserRetry,
   onUserEdit,
 }: Props) {
   const reduceMotion = useReducedMotion()
@@ -488,21 +486,6 @@ export function ChatMessage({
                 </TooltipTrigger>
                 <TooltipContent>Copy</TooltipContent>
               </Tooltip>
-
-              {onUserRetry && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => onUserRetry()}
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-foreground/8 hover:text-foreground"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>Retry</TooltipContent>
-                </Tooltip>
-              )}
 
               {canEdit && (
                 <Tooltip>

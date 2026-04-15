@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { AnimatePresence, motion } from "motion/react"
@@ -428,6 +429,7 @@ export function ChatSession({
   // This component contains hardening for no-refresh reliability and race-safe
   // dead-state handling. Structural edits must be reviewed with the user first.
 
+  const router = useRouter()
   const [input, setInput] = useState("")
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [showDeadStateFallback, setShowDeadStateFallback] = useState(false)
@@ -981,27 +983,6 @@ export function ChatSession({
     [isStreaming, regenerate]
   )
 
-  const handleRetryUser = useCallback(
-    async (assistantMessageId: string) => {
-      if (isStreaming) return
-
-      latestTurnStateRef.current = null
-      hideDeadState()
-
-      try {
-        await regenerate({ messageId: assistantMessageId })
-      } catch {
-        showDeadState(
-          "We could not complete this response. Please retry once your connection is stable."
-        )
-        toast.error(
-          "Server is busy or your connection is unstable. Please retry."
-        )
-      }
-    },
-    [hideDeadState, isStreaming, regenerate, showDeadState]
-  )
-
   const handleEditUser = useCallback(
     async (
       messageId: string,
@@ -1025,8 +1006,19 @@ export function ChatSession({
         ? getTextFromParts(sourceAssistantMessage.parts).trim()
         : undefined
 
-      setMessages((currentMessages) =>
-        currentMessages.map((message) => {
+      setMessages((currentMessages) => {
+        // Truncate to discard everything after the assistant message being
+        // regenerated. Without this, regenerate() sends all messages and
+        // getLastUserTurn on the server picks up the wrong (later) user turn.
+        const assistantIndex = currentMessages.findIndex(
+          (m) => m.id === assistantMessageId && m.role === "assistant"
+        )
+        const truncated =
+          assistantIndex >= 0
+            ? currentMessages.slice(0, assistantIndex + 1)
+            : currentMessages
+
+        return truncated.map((message) => {
           if (message.id === messageId && message.role === "user") {
             return {
               ...message,
@@ -1046,7 +1038,7 @@ export function ChatSession({
 
           return message
         })
-      )
+      })
 
       try {
         const response = await fetch(`/api/chat/${chatId}/overwrite`, {
@@ -1062,10 +1054,41 @@ export function ChatSession({
         })
 
         if (!response.ok) {
-          throw new Error("Failed to overwrite message")
+          const errorBody = await response.text().catch(() => "(unreadable)")
+          throw new Error(`Overwrite failed (${response.status}): ${errorBody}`)
         }
 
         await regenerate({ messageId: assistantMessageId })
+
+        // The AI SDK's makeRequest catches errors internally (setting status
+        // to "error") without re-throwing. Detect that case: after regenerate
+        // resolves, if no assistant reply was produced, the regeneration failed
+        // silently and messages are stuck in a truncated/blank state.
+        let postRegenMessages: typeof previousMessages | undefined
+        setMessages((current) => {
+          postRegenMessages = current
+          return current
+        })
+
+        if (postRegenMessages) {
+          const chatRoles = postRegenMessages.filter((m) => isChatRole(m.role))
+          const lastUserIdx = chatRoles.map((m) => m.role).lastIndexOf("user")
+          const hasAssistantReply =
+            lastUserIdx >= 0 &&
+            chatRoles
+              .slice(lastUserIdx + 1)
+              .some(
+                (m) =>
+                  m.role === "assistant" &&
+                  getTextFromParts(m.parts).trim().length > 0
+              )
+
+          if (!hasAssistantReply) {
+            throw new Error(
+              "Regeneration completed without producing an assistant response"
+            )
+          }
+        }
       } catch {
         setMessages(previousMessages)
         showDeadState(
@@ -1085,6 +1108,13 @@ export function ChatSession({
       setMessages,
       showDeadState,
     ]
+  )
+
+  const handleLockedModelChange = useCallback(
+    (model: string) => {
+      router.push(`/dashboard/chat?model=${encodeURIComponent(model)}`)
+    },
+    [router]
   )
 
   function getGreeting() {
@@ -1260,14 +1290,6 @@ export function ChatSession({
                           reasoningEnabled={reasoningEnabled}
                           isStreaming={isStreamingThis}
                           revealOnMount={shouldRevealOnMount}
-                          onUserRetry={
-                            !isStreaming &&
-                            message.role === "user" &&
-                            pairedAssistantMessageId
-                              ? () =>
-                                  void handleRetryUser(pairedAssistantMessageId)
-                              : undefined
-                          }
                           onUserEdit={
                             !isStreaming &&
                             message.role === "user" &&
@@ -1348,9 +1370,7 @@ export function ChatSession({
                   toast.info("Agent is locked for this chat session")
                 }}
                 model={lockedModel}
-                onModelChange={() => {
-                  toast.info("Model is locked for this chat session")
-                }}
+                onModelChange={handleLockedModelChange}
                 attachedFiles={attachedFiles}
                 onFileAttach={(file) =>
                   setAttachedFiles((prev) => [...prev, file])

@@ -278,6 +278,55 @@ export async function POST(
       .eq("role", "assistant")
   }
 
+  // ── Purge subsequent turns ────────────────────────────────────
+  // When a mid-conversation message is edited, all turns that came AFTER the
+  // edited one are invalidated (they were based on the old context). Delete
+  // them from both chat_turn_pairs and messages so they don't reappear on
+  // page reload.
+  //
+  // We look up the ORIGINAL turn pair by sourceContent BEFORE the upsert,
+  // because the upsert would give it a fresh created_at ("now") which breaks
+  // the timestamp comparison.
+  if (sourceContent) {
+    const { data: originalPair } = await serviceSupabase
+      .from("chat_turn_pairs")
+      .select("created_at")
+      .eq("chat_id", chat.id)
+      .eq("user_id", userId)
+      .eq("user_content", sourceContent)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (originalPair?.created_at) {
+      await serviceSupabase
+        .from("chat_turn_pairs")
+        .delete()
+        .eq("chat_id", chat.id)
+        .eq("user_id", userId)
+        .gt("created_at", originalPair.created_at)
+    }
+  }
+
+  // Purge messages created after the edited user message.
+  const { data: editedUserRow } = await serviceSupabase
+    .from("messages")
+    .select("created_at")
+    .eq("chat_id", chat.id)
+    .eq("user_id", userId)
+    .eq("id", resolvedTurnKey)
+    .maybeSingle()
+
+  if (editedUserRow?.created_at) {
+    await serviceSupabase
+      .from("messages")
+      .delete()
+      .eq("chat_id", chat.id)
+      .eq("user_id", userId)
+      .gt("created_at", editedUserRow.created_at)
+  }
+
+  // Now upsert the pending pair for the edited turn.
   await serviceSupabase.from("chat_turn_pairs").upsert(
     {
       chat_id: chat.id,

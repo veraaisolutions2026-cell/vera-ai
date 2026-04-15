@@ -376,6 +376,26 @@ export async function POST(
     if (persistedUserMessageByContent?.id) {
       resolvedTurnKey = persistedUserMessageByContent.id
       persistedUserMessage = persistedUserMessageByContent
+    } else {
+      // The overwrite route updates message content via the service client.
+      // The session client may miss the updated row due to RLS timing. Fall
+      // back to the service client to find it.
+      const { data: persistedUserMessageByContentService } =
+        await bookkeepingSupabase
+          .from("messages")
+          .select("id")
+          .eq("chat_id", chat.id)
+          .eq("user_id", userId)
+          .eq("role", "user")
+          .eq("content", lastUserTurn.text)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+      if (persistedUserMessageByContentService?.id) {
+        resolvedTurnKey = persistedUserMessageByContentService.id
+        persistedUserMessage = persistedUserMessageByContentService
+      }
     }
   }
 
@@ -398,6 +418,12 @@ export async function POST(
 
     if (pendingPairForContent?.turn_key) {
       resolvedTurnKey = pendingPairForContent.turn_key
+      // The overwrite route already created/updated the message row for this
+      // turn key. Mark it as found so the createMessage block below does not
+      // insert a duplicate row and override resolvedTurnKey.
+      if (!persistedUserMessage?.id) {
+        persistedUserMessage = { id: pendingPairForContent.turn_key }
+      }
     }
   }
 
