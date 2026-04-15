@@ -1017,6 +1017,13 @@ export function ChatSession({
       latestTurnStateRef.current = null
       hideDeadState()
       const previousMessages = messages
+      const sourceAssistantMessage = previousMessages.find(
+        (message) =>
+          message.id === assistantMessageId && message.role === "assistant"
+      )
+      const sourceAssistantContent = sourceAssistantMessage
+        ? getTextFromParts(sourceAssistantMessage.parts).trim()
+        : undefined
 
       setMessages((currentMessages) =>
         currentMessages.map((message) => {
@@ -1048,6 +1055,7 @@ export function ChatSession({
           body: JSON.stringify({
             sourceMessageId: messageId,
             sourceContent,
+            sourceAssistantContent,
             content: trimmed,
             assistantMessageId,
           }),
