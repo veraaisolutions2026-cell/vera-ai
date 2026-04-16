@@ -242,16 +242,24 @@ export async function getUsageAnalytics(
     usageAvailability.billingInterval
   )
 
-  const daysInMonth = new Date(
-    today.getFullYear(),
-    today.getMonth() + 1,
-    0
-  ).getDate()
-  const dailySpend = daysInMonth > 0 ? monthlyUsageBudgetUsd / daysInMonth : 0
+  const approximateMonthlyRequests =
+    getBillingPlan(plan).approximateMonthlyRequests
+  const estimatedCostPerRequest =
+    approximateMonthlyRequests > 0
+      ? monthlyUsageBudgetUsd / approximateMonthlyRequests
+      : 0
 
-  let cumulativeSpend = 0
+  const requestsInLast14 = usageSource.recentRequestTimestamps.length
+  const monthRequestsOutsideLast14 = Math.max(
+    0,
+    usageAvailability.monthRequests - requestsInLast14
+  )
+
+  // Keep spend aligned with month request totals so charts don't show zero
+  // when month usage exists outside the 14-day activity window.
+  let cumulativeSpend = monthRequestsOutsideLast14 * estimatedCostPerRequest
   const spend = activity.map((point) => {
-    cumulativeSpend += dailySpend
+    cumulativeSpend += point.requests * estimatedCostPerRequest
     return {
       date: point.date,
       spend: Number(cumulativeSpend.toFixed(2)),

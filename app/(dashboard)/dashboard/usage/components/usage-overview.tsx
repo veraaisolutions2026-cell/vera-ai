@@ -144,7 +144,7 @@ export function UsageOverview({ usage }: Props) {
           <div className="mb-4">
             <h2 className="text-sm font-medium">Spend</h2>
             <p className="text-xs text-muted-foreground">
-              Estimated cumulative AI cost budget for the current month.
+              Estimated cumulative AI spend based on request activity.
             </p>
           </div>
 
