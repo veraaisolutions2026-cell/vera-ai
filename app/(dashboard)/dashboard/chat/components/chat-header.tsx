@@ -1,13 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import {
-  Document as PdfDocument,
-  Page,
-  StyleSheet,
-  Text,
-  pdf,
-} from "@react-pdf/renderer"
 import { AnimatePresence, motion } from "motion/react"
 import { Download, FileCode2, FileText, Loader2 } from "lucide-react"
 import {
@@ -34,31 +27,6 @@ const FORMATS = [
   { id: "md", label: "Markdown", icon: FileCode2 },
   { id: "txt", label: "Plain text", icon: FileText },
 ] as const
-
-const pdfStyles = StyleSheet.create({
-  page: {
-    padding: 32,
-    fontSize: 11,
-    lineHeight: 1.45,
-    color: "#111827",
-  },
-  title: {
-    fontSize: 16,
-    marginBottom: 14,
-  },
-  section: {
-    marginBottom: 10,
-  },
-  role: {
-    fontSize: 9,
-    color: "#6b7280",
-    marginBottom: 3,
-    textTransform: "uppercase",
-  },
-  content: {
-    fontSize: 11,
-  },
-})
 
 function normalizeTitle(raw: string): string {
   const trimmed = raw.trim()
@@ -101,51 +69,6 @@ function sanitizeFileName(title: string): string {
   )
 }
 
-function toText(messages: ChatHeaderMessage[]): string {
-  return messages
-    .map(
-      (m) => `${m.role === "user" ? "User" : "Assistant"}:\n${m.content.trim()}`
-    )
-    .join("\n\n")
-    .trim()
-}
-
-function toMarkdown(messages: ChatHeaderMessage[], title: string): string {
-  const body = messages
-    .map((m) => {
-      const role = m.role === "user" ? "User" : "Assistant"
-      return `## ${role}\n\n${m.content.trim()}`
-    })
-    .join("\n\n")
-
-  return `# ${title}\n\n${body}`.trim()
-}
-
-function ChatPdf({
-  title,
-  messages,
-}: {
-  title: string
-  messages: ChatHeaderMessage[]
-}) {
-  return (
-    <PdfDocument>
-      <Page size="A4" style={pdfStyles.page}>
-        <Text style={pdfStyles.title}>{title}</Text>
-        {messages.map((m, idx) => (
-          <Text key={`${m.role}-${idx}`} style={pdfStyles.section}>
-            <Text style={pdfStyles.role}>
-              {m.role === "user" ? "User" : "Assistant"}
-            </Text>
-            {"\n"}
-            <Text style={pdfStyles.content}>{m.content.trim()}</Text>
-          </Text>
-        ))}
-      </Page>
-    </PdfDocument>
-  )
-}
-
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
@@ -169,7 +92,6 @@ export function ChatHeader({ chatId, initialTitle, messages }: Props) {
   const setSharedLoading = useChatTitleState((state) => state.setLoading)
 
   const titleSeed = useMemo(() => buildTitleSeed(messages), [messages])
-  const baseFile = useMemo(() => sanitizeFileName(title), [title])
 
   useEffect(() => {
     setIsClientReady(true)
@@ -263,28 +185,22 @@ export function ChatHeader({ chatId, initialTitle, messages }: Props) {
     setExporting(fmt)
 
     try {
-      if (fmt === "txt") {
-        const txt = toText(messages)
-        downloadBlob(
-          new Blob([txt], { type: "text/plain;charset=utf-8" }),
-          `${baseFile}.txt`
-        )
-        return
+      const response = await fetch(
+        `/api/chat/${encodeURIComponent(chatId)}/export?format=${fmt}`
+      )
+
+      if (!response.ok) {
+        throw new Error(`Export failed (${response.status})`)
       }
 
-      if (fmt === "md") {
-        const md = toMarkdown(messages, title)
-        downloadBlob(
-          new Blob([md], { type: "text/markdown;charset=utf-8" }),
-          `${baseFile}.md`
-        )
-        return
-      }
+      const disposition = response.headers.get("content-disposition")
+      const fileNameMatch = disposition?.match(/filename="([^"]+)"/i)
+      const fallbackTitle = sanitizeFileName(title)
+      const fallbackName = `${fallbackTitle}.${fmt}`
+      const fileName = fileNameMatch?.[1] || fallbackName
 
-      const blob = await pdf(
-        <ChatPdf title={title} messages={messages} />
-      ).toBlob()
-      downloadBlob(blob, `${baseFile}.pdf`)
+      const blob = await response.blob()
+      downloadBlob(blob, fileName)
     } finally {
       setExporting(null)
     }

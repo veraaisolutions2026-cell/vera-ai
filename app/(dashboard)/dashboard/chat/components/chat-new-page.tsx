@@ -7,32 +7,8 @@ import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { startChat } from "@/actions/chat-actions"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
+import { DEFAULT_PROMPTS } from "./default-prompts"
 import type { Agent } from "@/types/database"
-
-const PROMPT_CARDS = [
-  {
-    icon: ShieldAlert,
-    title: "Analyse audit risk",
-    description:
-      "Surface key risks and material misstatements across an engagement",
-    prompt:
-      "Summarise the key audit risks and potential material misstatements I should address in this engagement. Include relevant assertions and suggested audit procedures.",
-  },
-  {
-    icon: ScanSearch,
-    title: "Review a workpaper",
-    description: "Check completeness, accuracy, and sign-off readiness",
-    prompt:
-      "Review my workpaper for completeness, accuracy, and any gaps that could affect the audit conclusion. Flag missing cross-references, weak evidence, or unresolved exceptions.",
-  },
-  {
-    icon: FileText,
-    title: "Draft disclosure notes",
-    description: "Generate IFRS-compliant financial statement language",
-    prompt:
-      "Draft IFRS-compliant disclosure notes for revenue recognition under IFRS 15. Include judgements made, performance obligations identified, and the basis of measurement.",
-  },
-]
 
 const SUBHEADINGS = [
   "Working late? Let's keep it efficient.",
@@ -60,6 +36,11 @@ export function ChatNewPage({ userName, agents }: Props) {
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const submitInFlightRef = useRef(false)
   const launchToastShownRef = useRef(false)
+  const promptIcons = {
+    "shield-alert": ShieldAlert,
+    "scan-search": ScanSearch,
+    "file-text": FileText,
+  }
 
   const firstName = userName.split(" ")[0] || "User"
 
@@ -152,69 +133,85 @@ export function ChatNewPage({ userName, agents }: Props) {
     typingRef.current = setTimeout(tick, 60)
   }
 
-  const handleStartChat = useCallback(async () => {
-    const text = input.trim()
-    if (
-      (text.length === 0 && attachedFiles.length === 0) ||
-      isStarting ||
-      submitInFlightRef.current
-    ) {
-      return
-    }
-
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
-      toast.error("Network unavailable. Check your connection and try again.")
-      return
-    }
-
-    const usageAvailable = await hasUsageAvailable()
-    if (!usageAvailable) {
-      showOutOfUsageToast()
-      return
-    }
-
-    submitInFlightRef.current = true
-    setIsStarting(true)
-
-    try {
-      const files = attachedFiles
-      setAttachedFiles([])
-      setInput("")
-
-      const result = await startChat(text, files, selectedAgent?.id, model)
-
-      if (result.redirectTo) {
-        router.push(result.redirectTo)
+  const handleStartChat = useCallback(
+    async (overrideText?: string) => {
+      const text = (overrideText ?? input).trim()
+      if (
+        (text.length === 0 && attachedFiles.length === 0) ||
+        isStarting ||
+        submitInFlightRef.current
+      ) {
         return
       }
 
-      if (result.error === "out_of_usage") {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        toast.error("Network unavailable. Check your connection and try again.")
+        return
+      }
+
+      const usageAvailable = await hasUsageAvailable()
+      if (!usageAvailable) {
         showOutOfUsageToast()
         return
       }
 
-      if (!result.chatId) {
-        toast.error("Could not start chat. Please try again.")
+      submitInFlightRef.current = true
+      setIsStarting(true)
+
+      try {
+        const files = attachedFiles
+        setAttachedFiles([])
+        setInput("")
+
+        const result = await startChat(text, files, selectedAgent?.id, model)
+
+        if (result.redirectTo) {
+          router.push(result.redirectTo)
+          return
+        }
+
+        if (result.error === "out_of_usage") {
+          showOutOfUsageToast()
+          return
+        }
+
+        if (!result.chatId) {
+          toast.error("Could not start chat. Please try again.")
+          return
+        }
+
+        router.push(`/dashboard/chat/${result.chatId}`)
+      } catch {
+        toast.error("Network failure. Please try again.")
+      } finally {
+        submitInFlightRef.current = false
+        setIsStarting(false)
+      }
+    },
+    [
+      attachedFiles,
+      hasUsageAvailable,
+      input,
+      isStarting,
+      model,
+      router,
+      selectedAgent?.id,
+      showOutOfUsageToast,
+    ]
+  )
+
+  const triggerDefaultPrompt = useCallback(
+    (prompt: (typeof DEFAULT_PROMPTS)[number]) => {
+      if (prompt.behavior === "send-immediately") {
+        const sendText = prompt.immediateText?.trim() || prompt.prefillText
+        void handleStartChat(sendText)
         return
       }
 
-      router.push(`/dashboard/chat/${result.chatId}`)
-    } catch {
-      toast.error("Network failure. Please try again.")
-    } finally {
-      submitInFlightRef.current = false
-      setIsStarting(false)
-    }
-  }, [
-    attachedFiles,
-    hasUsageAvailable,
-    input,
-    isStarting,
-    model,
-    router,
-    selectedAgent?.id,
-    showOutOfUsageToast,
-  ])
+      typeIntoComposer(prompt.prefillText)
+    },
+    [handleStartChat]
+  )
 
   return (
     <AnimatePresence mode="wait">
@@ -307,12 +304,12 @@ export function ChatNewPage({ userName, agents }: Props) {
                   Get started with an example
                 </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {PROMPT_CARDS.map((card) => {
-                    const Icon = card.icon
+                  {DEFAULT_PROMPTS.map((card) => {
+                    const Icon = promptIcons[card.icon]
                     return (
                       <button
-                        key={card.title}
-                        onClick={() => typeIntoComposer(card.prompt)}
+                        key={card.id}
+                        onClick={() => triggerDefaultPrompt(card)}
                         disabled={isStarting}
                         className="group flex flex-col gap-3 rounded-xl border border-border/50 bg-card/60 p-4 text-left transition-all hover:border-border/80 hover:bg-card disabled:pointer-events-none disabled:opacity-50"
                       >

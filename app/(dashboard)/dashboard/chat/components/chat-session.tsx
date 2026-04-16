@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
+import { DEFAULT_PROMPTS } from "./default-prompts"
 import {
   ATTACHMENT_THINKING_PHRASES,
   AssistantFallback,
@@ -35,31 +36,6 @@ type Props = {
   pendingFirstMessage?: string
   selectedAgent: Agent | null
 }
-
-const PROMPT_CARDS = [
-  {
-    icon: ShieldAlert,
-    title: "Analyse audit risk",
-    description:
-      "Surface key risks and material misstatements across an engagement",
-    prompt:
-      "Summarise the key audit risks and potential material misstatements I should address in this engagement. Include relevant assertions and suggested audit procedures.",
-  },
-  {
-    icon: ScanSearch,
-    title: "Review a workpaper",
-    description: "Check completeness, accuracy, and sign-off readiness",
-    prompt:
-      "Review my workpaper for completeness, accuracy, and any gaps that could affect the audit conclusion. Flag missing cross-references, weak evidence, or unresolved exceptions.",
-  },
-  {
-    icon: FileText,
-    title: "Draft disclosure notes",
-    description: "Generate IFRS-compliant financial statement language",
-    prompt:
-      "Draft IFRS-compliant disclosure notes for revenue recognition under IFRS 15. Include judgements made, performance obligations identified, and the basis of measurement.",
-  },
-]
 
 const SUBHEADINGS = [
   "Working late? Let's keep it efficient.",
@@ -430,6 +406,11 @@ export function ChatSession({
   // dead-state handling. Structural edits must be reviewed with the user first.
 
   const router = useRouter()
+  const promptIcons = {
+    "shield-alert": ShieldAlert,
+    "scan-search": ScanSearch,
+    "file-text": FileText,
+  }
   const [input, setInput] = useState("")
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [showDeadStateFallback, setShowDeadStateFallback] = useState(false)
@@ -923,52 +904,69 @@ export function ChatSession({
     typingRef.current = setTimeout(tick, 60)
   }
 
-  const send = useCallback(async () => {
-    const text = input.trim()
-    if ((text.length === 0 && attachedFiles.length === 0) || isStreaming) return
+  const send = useCallback(
+    async (overrideText?: string) => {
+      const text = (overrideText ?? input).trim()
+      if ((text.length === 0 && attachedFiles.length === 0) || isStreaming)
+        return
 
-    const usageAvailable = await hasUsageAvailable()
-    if (!usageAvailable) {
-      showOutOfUsageToast()
-      return
-    }
-
-    latestTurnStateRef.current = null
-    hideDeadState()
-    setInput("")
-
-    const files = attachedFiles
-    setAttachedFiles([])
-
-    try {
-      await sendMessage({
-        text,
-        files: buildAttachmentFileParts(files),
-      })
-    } catch (error) {
-      if (isOutOfUsageError(error)) {
+      const usageAvailable = await hasUsageAvailable()
+      if (!usageAvailable) {
         showOutOfUsageToast()
         return
       }
 
-      showDeadState(
-        "We could not complete this response. Please retry once your connection is stable."
-      )
-      toast.error(
-        "Server is busy or your connection is unstable. Please retry."
-      )
-    }
-  }, [
-    input,
-    isStreaming,
-    attachedFiles,
-    hasUsageAvailable,
-    sendMessage,
-    hideDeadState,
-    isOutOfUsageError,
-    showOutOfUsageToast,
-    showDeadState,
-  ])
+      latestTurnStateRef.current = null
+      hideDeadState()
+      setInput("")
+
+      const files = attachedFiles
+      setAttachedFiles([])
+
+      try {
+        await sendMessage({
+          text,
+          files: buildAttachmentFileParts(files),
+        })
+      } catch (error) {
+        if (isOutOfUsageError(error)) {
+          showOutOfUsageToast()
+          return
+        }
+
+        showDeadState(
+          "We could not complete this response. Please retry once your connection is stable."
+        )
+        toast.error(
+          "Server is busy or your connection is unstable. Please retry."
+        )
+      }
+    },
+    [
+      input,
+      isStreaming,
+      attachedFiles,
+      hasUsageAvailable,
+      sendMessage,
+      hideDeadState,
+      isOutOfUsageError,
+      showOutOfUsageToast,
+      showDeadState,
+    ]
+  )
+
+  const triggerDefaultPrompt = useCallback(
+    (prompt: (typeof DEFAULT_PROMPTS)[number]) => {
+      if (prompt.behavior === "send-immediately") {
+        const sendText = prompt.immediateText?.trim() || prompt.prefillText
+        void send(sendText)
+        return
+      }
+
+      typeIntoComposer(prompt.prefillText)
+    },
+    [send]
+  )
 
   const retryDeadState = useCallback(async () => {
     if (isStreaming) return
@@ -1227,12 +1225,12 @@ export function ChatSession({
                   Get started with an example
                 </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {PROMPT_CARDS.map((card) => {
-                    const Icon = card.icon
+                  {DEFAULT_PROMPTS.map((card) => {
+                    const Icon = promptIcons[card.icon]
                     return (
                       <button
-                        key={card.title}
-                        onClick={() => typeIntoComposer(card.prompt)}
+                        key={card.id}
+                        onClick={() => triggerDefaultPrompt(card)}
                         disabled={isStreaming}
                         className="group flex flex-col gap-3 rounded-xl border border-border/50 bg-card/60 p-4 text-left transition-all hover:border-border/80 hover:bg-card disabled:pointer-events-none disabled:opacity-50"
                       >
