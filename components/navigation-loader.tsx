@@ -99,6 +99,35 @@ export function NavigationLoader({
   }, [mode, pathname, shouldHandleNavigation, sidebarCollapsed])
 
   useEffect(() => {
+    if (!shouldHandleNavigation) return
+
+    function handleManualNavigationStart() {
+      if (mode === "dashboard" && !sidebarCollapsed) {
+        setPanelRect(getMainContentRect())
+      }
+
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+
+      setIsNavigating(true)
+    }
+
+    window.addEventListener(
+      "vera:navigation-loader-start",
+      handleManualNavigationStart
+    )
+
+    return () => {
+      window.removeEventListener(
+        "vera:navigation-loader-start",
+        handleManualNavigationStart
+      )
+    }
+  }, [mode, shouldHandleNavigation, sidebarCollapsed])
+
+  useEffect(() => {
     if (!isNavigating || mode !== "dashboard" || sidebarCollapsed) return
 
     function syncRect() {

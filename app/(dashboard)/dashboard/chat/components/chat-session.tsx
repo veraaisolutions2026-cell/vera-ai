@@ -17,6 +17,7 @@ import {
 } from "./chat-message"
 import { ChatHeader } from "./chat-header"
 import { supportsReasoningForModel } from "@/lib/models"
+import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
 import type { Agent } from "@/types/database"
 import {
   buildAttachmentFileParts,
@@ -412,6 +413,7 @@ export function ChatSession({
     "file-text": FileText,
   }
   const [input, setInput] = useState("")
+  const [isSubmitPending, setIsSubmitPending] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [showDeadStateFallback, setShowDeadStateFallback] = useState(false)
   const [userBranchMap, setUserBranchMap] = useState<
@@ -832,15 +834,9 @@ export function ChatSession({
   )
 
   const showOutOfUsageToast = useCallback(() => {
-    toast.error(
-      "You are out of monthly usage. Upgrade your plan to continue.",
-      {
-        action: {
-          label: "Upgrade plan",
-          onClick: () => router.push("/dashboard/billing"),
-        },
-      }
-    )
+    showUsageUpsellToast({
+      onUpgrade: () => router.push("/dashboard/billing"),
+    })
   }, [router])
 
   const hasUsageAvailable = useCallback(async () => {
@@ -907,12 +903,20 @@ export function ChatSession({
   const send = useCallback(
     async (overrideText?: string) => {
       const text = (overrideText ?? input).trim()
-      if ((text.length === 0 && attachedFiles.length === 0) || isStreaming)
+      if (
+        (text.length === 0 && attachedFiles.length === 0) ||
+        isStreaming ||
+        isSubmitPending
+      )
         return
+
+      // Show pending state immediately to avoid click-to-loader latency.
+      setIsSubmitPending(true)
 
       const usageAvailable = await hasUsageAvailable()
       if (!usageAvailable) {
         showOutOfUsageToast()
+        setIsSubmitPending(false)
         return
       }
 
@@ -931,6 +935,7 @@ export function ChatSession({
       } catch (error) {
         if (isOutOfUsageError(error)) {
           showOutOfUsageToast()
+          setIsSubmitPending(false)
           return
         }
 
@@ -940,11 +945,13 @@ export function ChatSession({
         toast.error(
           "Server is busy or your connection is unstable. Please retry."
         )
+        setIsSubmitPending(false)
       }
     },
     [
       input,
       isStreaming,
+      isSubmitPending,
       attachedFiles,
       hasUsageAvailable,
       sendMessage,
@@ -954,6 +961,16 @@ export function ChatSession({
       showDeadState,
     ]
   )
+
+  useEffect(() => {
+    if (
+      status === "submitted" ||
+      status === "streaming" ||
+      status === "ready"
+    ) {
+      setIsSubmitPending(false)
+    }
+  }, [status])
 
   const triggerDefaultPrompt = useCallback(
     (prompt: (typeof DEFAULT_PROMPTS)[number]) => {
@@ -1383,8 +1400,8 @@ export function ChatSession({
                 input={input}
                 onInputChange={setInput}
                 onSubmit={() => void send()}
-                isLoading={isStreaming}
-                onStop={() => void stop()}
+                isLoading={isStreaming || isSubmitPending}
+                onStop={isStreaming ? () => void stop() : undefined}
                 agents={agents}
                 selectedAgent={selectedAgent}
                 onAgentChange={() => {

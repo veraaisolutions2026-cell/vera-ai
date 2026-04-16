@@ -86,7 +86,7 @@ export function ChatComposer({
   }, [input])
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault()
 
       if (
@@ -360,6 +360,10 @@ export function ChatComposer({
             </div>
           </div>
         </div>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
+          Press Ctrl+Enter (Windows/Linux) or Cmd+Enter (Mac) to send. Press
+          Enter for a new line.
+        </p>
       </div>
     </div>
   )

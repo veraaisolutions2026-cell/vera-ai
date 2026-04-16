@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { startChat } from "@/actions/chat-actions"
+import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
 import type { Agent } from "@/types/database"
@@ -35,6 +36,7 @@ export function ChatNewPage({ userName, agents }: Props) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const submitInFlightRef = useRef(false)
+  const routeHandoffRef = useRef(false)
   const launchToastShownRef = useRef(false)
   const promptIcons = {
     "shield-alert": ShieldAlert,
@@ -45,15 +47,9 @@ export function ChatNewPage({ userName, agents }: Props) {
   const firstName = userName.split(" ")[0] || "User"
 
   const showOutOfUsageToast = useCallback(() => {
-    toast.error(
-      "You are out of monthly usage. Upgrade your plan to continue.",
-      {
-        action: {
-          label: "Upgrade plan",
-          onClick: () => router.push("/dashboard/billing"),
-        },
-      }
-    )
+    showUsageUpsellToast({
+      onUpgrade: () => router.push("/dashboard/billing"),
+    })
   }, [router])
 
   const hasUsageAvailable = useCallback(async () => {
@@ -144,28 +140,32 @@ export function ChatNewPage({ userName, agents }: Props) {
         return
       }
 
+      // Set pending UI immediately so users get instant submit feedback.
+      submitInFlightRef.current = true
+      setIsStarting(true)
+
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         toast.error("Network unavailable. Check your connection and try again.")
+        submitInFlightRef.current = false
+        setIsStarting(false)
         return
       }
 
       const usageAvailable = await hasUsageAvailable()
       if (!usageAvailable) {
         showOutOfUsageToast()
+        submitInFlightRef.current = false
+        setIsStarting(false)
         return
       }
 
-      submitInFlightRef.current = true
-      setIsStarting(true)
-
       try {
         const files = attachedFiles
-        setAttachedFiles([])
-        setInput("")
 
         const result = await startChat(text, files, selectedAgent?.id, model)
 
         if (result.redirectTo) {
+          routeHandoffRef.current = true
           router.push(result.redirectTo)
           return
         }
@@ -180,12 +180,15 @@ export function ChatNewPage({ userName, agents }: Props) {
           return
         }
 
+        routeHandoffRef.current = true
         router.push(`/dashboard/chat/${result.chatId}`)
       } catch {
         toast.error("Network failure. Please try again.")
       } finally {
-        submitInFlightRef.current = false
-        setIsStarting(false)
+        if (!routeHandoffRef.current) {
+          submitInFlightRef.current = false
+          setIsStarting(false)
+        }
       }
     },
     [
