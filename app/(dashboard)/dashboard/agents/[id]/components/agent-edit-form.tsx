@@ -19,7 +19,6 @@ import {
 import { updateUserAgent, deleteUserAgent } from "@/actions/agent-actions"
 import { AgentIconPicker } from "@/components/agent-icon-picker"
 import { ModelPicker } from "@/components/model-picker"
-import { cn } from "@/lib/utils"
 import type { Agent } from "@/types/database"
 
 export function AgentEditForm({ agent }: { agent: Agent }) {

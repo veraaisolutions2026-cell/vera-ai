@@ -10,6 +10,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { recordUsageEvent } from "@/lib/db/usage-events"
 import { getAcaPrompt } from "@/lib/db/system-config"
+import { getUsageAvailability } from "@/lib/db/usage-limits"
 
 export const maxDuration = 60
 const AI_DEVTOOLS_ENABLED =
@@ -76,6 +77,23 @@ export async function POST(req: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return new Response("Unauthorized", { status: 401 })
+
+  const usageAvailability = await getUsageAvailability(user.id)
+  if (!usageAvailability.isAvailable) {
+    return Response.json(
+      {
+        error: "out_of_usage",
+        remainingRequests: usageAvailability.remainingRequests,
+        monthlyRequestLimit: usageAvailability.monthlyRequestLimit,
+      },
+      {
+        status: 402,
+        headers: {
+          "x-vera-turn-state": "out-of-usage",
+        },
+      }
+    )
+  }
 
   const { messages } = (await req.json()) as { messages: UIMessage[] }
   if (!messages?.length) {

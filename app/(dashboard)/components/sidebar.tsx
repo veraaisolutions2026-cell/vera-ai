@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { VeraLogo } from "@/components/ui/vera-logo"
-import { useState, useEffect, useTransition, useRef } from "react"
+import { useState, useTransition, useRef } from "react"
 import { useFormStatus } from "react-dom"
 import {
   Bot,

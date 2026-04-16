@@ -17,16 +17,31 @@ import {
   AlertDialogTitle,
 } from "@/components/animate-ui/components/radix/alert-dialog"
 import { Checkbox } from "@/components/animate-ui/components/radix/checkbox"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { cn } from "@/lib/utils"
 import { removeMultipleChatsAction } from "@/actions/chat-actions"
 import type { Chat } from "@/types/database"
 
 export function ChatManager({ chats }: { chats: Chat[] }) {
+  const rowsPerPage = 10
   const router = useRouter()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+
+  const totalPages = Math.max(1, Math.ceil(chats.length / rowsPerPage))
+  const currentPage = Math.min(page, totalPages)
+  const startIndex = (currentPage - 1) * rowsPerPage
+  const pagedChats = chats.slice(startIndex, startIndex + rowsPerPage)
 
   const allSelected = chats.length > 0 && selected.size === chats.length
   const noneSelected = selected.size === 0
@@ -37,15 +52,6 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
     } else {
       setSelected(new Set(chats.map((c) => c.id)))
     }
-  }
-
-  function toggleOne(id: string, e: React.MouseEvent) {
-    e.stopPropagation()
-    setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
   }
 
   function handleDelete() {
@@ -94,6 +100,12 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
         </AnimatePresence>
       </div>
 
+      {chats.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Showing {pagedChats.length} of {chats.length} chats
+        </p>
+      )}
+
       {/* List */}
       {chats.length === 0 ? (
         <p className="py-20 text-center text-sm text-muted-foreground">
@@ -101,7 +113,7 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
         </p>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border/50">
-          {chats.map((chat, i) => {
+          {pagedChats.map((chat, i) => {
             const isSelected = selected.has(chat.id)
             return (
               <div
@@ -130,9 +142,11 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
                     onCheckedChange={() => {
                       setSelected((prev) => {
                         const next = new Set(prev)
-                        next.has(chat.id)
-                          ? next.delete(chat.id)
-                          : next.add(chat.id)
+                        if (next.has(chat.id)) {
+                          next.delete(chat.id)
+                        } else {
+                          next.add(chat.id)
+                        }
                         return next
                       })
                     }}
@@ -179,6 +193,46 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
             )
           })}
         </div>
+      )}
+
+      {totalPages > 1 && (
+        <Pagination>
+          <PaginationContent className="w-full flex-wrap justify-between gap-y-2 sm:justify-center">
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              />
+            </PaginationItem>
+
+            <PaginationItem className="inline-flex items-center px-2 text-xs text-muted-foreground sm:hidden">
+              Page {currentPage} of {totalPages}
+            </PaginationItem>
+
+            <div className="hidden items-center gap-1 sm:flex">
+              {Array.from({ length: totalPages }).map((_, idx) => {
+                const pageNumber = idx + 1
+                return (
+                  <PaginationItem key={pageNumber}>
+                    <PaginationLink
+                      isActive={pageNumber === currentPage}
+                      onClick={() => setPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              })}
+            </div>
+
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

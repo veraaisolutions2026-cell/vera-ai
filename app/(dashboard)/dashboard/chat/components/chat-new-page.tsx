@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
@@ -50,6 +50,8 @@ export function ChatNewPage({ userName, agents }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const modelFromQuery = searchParams.get("model")
+  const selectedAgentIdFromQuery = searchParams.get("agent")
+  const fromAgentCard = searchParams.get("fromAgentCard") === "1"
   const [input, setInput] = useState("")
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
   const [model, setModel] = useState(modelFromQuery ?? "claude-sonnet-4-6")
@@ -57,8 +59,64 @@ export function ChatNewPage({ userName, agents }: Props) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const submitInFlightRef = useRef(false)
+  const launchToastShownRef = useRef(false)
 
   const firstName = userName.split(" ")[0] || "User"
+
+  const showOutOfUsageToast = useCallback(() => {
+    toast.error(
+      "You are out of monthly usage. Upgrade your plan to continue.",
+      {
+        action: {
+          label: "Upgrade plan",
+          onClick: () => router.push("/dashboard/billing"),
+        },
+      }
+    )
+  }, [router])
+
+  const hasUsageAvailable = useCallback(async () => {
+    try {
+      const response = await fetch("/api/usage/availability", {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      if (!response.ok) return true
+
+      const payload = (await response.json()) as { isAvailable?: boolean }
+      return payload.isAvailable !== false
+    } catch {
+      // Do not hard-block users if availability check cannot be reached.
+      return true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedAgentIdFromQuery) return
+
+    const matchedAgent =
+      agents.find((agent) => agent.id === selectedAgentIdFromQuery) ?? null
+    if (!matchedAgent) return
+
+    setSelectedAgent((current) =>
+      current?.id === matchedAgent.id ? current : matchedAgent
+    )
+
+    if (fromAgentCard && !launchToastShownRef.current) {
+      launchToastShownRef.current = true
+      toast.success(`${matchedAgent.name} selected for this chat.`)
+
+      const next = new URLSearchParams(searchParams.toString())
+      next.delete("agent")
+      next.delete("fromAgentCard")
+
+      const nextQuery = next.toString()
+      router.replace(
+        nextQuery ? `/dashboard/chat?${nextQuery}` : "/dashboard/chat"
+      )
+    }
+  }, [agents, fromAgentCard, router, searchParams, selectedAgentIdFromQuery])
 
   function getGreeting() {
     const hour = new Date().getHours()
@@ -109,6 +167,12 @@ export function ChatNewPage({ userName, agents }: Props) {
       return
     }
 
+    const usageAvailable = await hasUsageAvailable()
+    if (!usageAvailable) {
+      showOutOfUsageToast()
+      return
+    }
+
     submitInFlightRef.current = true
     setIsStarting(true)
 
@@ -124,6 +188,11 @@ export function ChatNewPage({ userName, agents }: Props) {
         return
       }
 
+      if (result.error === "out_of_usage") {
+        showOutOfUsageToast()
+        return
+      }
+
       if (!result.chatId) {
         toast.error("Could not start chat. Please try again.")
         return
@@ -136,7 +205,16 @@ export function ChatNewPage({ userName, agents }: Props) {
       submitInFlightRef.current = false
       setIsStarting(false)
     }
-  }, [attachedFiles, input, isStarting, model, router, selectedAgent?.id])
+  }, [
+    attachedFiles,
+    hasUsageAvailable,
+    input,
+    isStarting,
+    model,
+    router,
+    selectedAgent?.id,
+    showOutOfUsageToast,
+  ])
 
   return (
     <AnimatePresence mode="wait">

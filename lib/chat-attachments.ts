@@ -48,9 +48,7 @@ export type ChatMessageAttachment = {
   mediaType: string
 }
 
-export function getAttachmentFallbackText(
-  attachments: ChatAttachment[]
-): string {
+function getAttachmentFallbackText(attachments: ChatAttachment[]): string {
   if (attachments.length === 0) return ""
   if (attachments.length === 1) {
     return `Please review the attached document: ${attachments[0]!.name}.`

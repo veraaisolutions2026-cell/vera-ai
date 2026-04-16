@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -88,22 +88,6 @@ function PaginationNext({
   )
 }
 
-function PaginationEllipsis({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
-  return (
-    <span
-      aria-hidden
-      className={cn("flex h-8 w-8 items-center justify-center", className)}
-      {...props}
-    >
-      <MoreHorizontal className="h-4 w-4" />
-      <span className="sr-only">More pages</span>
-    </span>
-  )
-}
-
 export {
   Pagination,
   PaginationContent,
@@ -111,5 +95,4 @@ export {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-  PaginationEllipsis,
 }

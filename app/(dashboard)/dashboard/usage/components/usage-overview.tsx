@@ -33,13 +33,19 @@ const spendConfig = {
     label: "Spend",
     color: "oklch(0.83 0.005 286)",
   },
-  requests: {
-    label: "Requests",
-    color: "var(--chart-1)",
-  },
 } satisfies ChartConfig
 
 export function UsageOverview({ usage }: Props) {
+  const usageLimitLabel =
+    usage.monthlyRequestLimit === null
+      ? "Unlimited"
+      : `${usage.monthRequests.toLocaleString()} / ${usage.monthlyRequestLimit.toLocaleString()}`
+
+  const remainingLabel =
+    usage.remainingRequests === null
+      ? "Unlimited"
+      : usage.remainingRequests.toLocaleString()
+
   const cards = [
     {
       label: "Total Requests",
@@ -49,7 +55,15 @@ export function UsageOverview({ usage }: Props) {
     {
       label: "Requests This Month",
       value: usage.monthRequests.toLocaleString(),
-      sub: usage.includedRequestsLabel,
+      sub: usageLimitLabel,
+    },
+    {
+      label: "Remaining Requests",
+      value: remainingLabel,
+      sub:
+        usage.monthlyRequestLimit === null
+          ? "No monthly cap"
+          : `${usage.usagePercent ?? 0}% used`,
     },
     {
       label: "Active Days",
@@ -65,7 +79,19 @@ export function UsageOverview({ usage }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {usage.isExhausted && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/8 px-4 py-3">
+          <p className="text-sm font-medium text-destructive">
+            Monthly usage limit reached
+          </p>
+          <p className="mt-1 text-xs text-destructive/90">
+            You have used your available requests for this month. Upgrade your
+            plan to continue sending messages.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {cards.map((card) => (
           <div
             key={card.label}
@@ -150,13 +176,6 @@ export function UsageOverview({ usage }: Props) {
                 dataKey="spend"
                 fill="var(--color-spend)"
                 radius={[6, 6, 0, 0]}
-              />
-              <Line
-                dataKey="requests"
-                type="monotone"
-                stroke="var(--color-requests)"
-                strokeWidth={2}
-                dot={false}
               />
             </BarChart>
           </ChartContainer>

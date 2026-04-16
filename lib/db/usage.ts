@@ -1,4 +1,3 @@
-import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import {
   formatApproximateRequests,
@@ -6,6 +5,7 @@ import {
   getMonthlyUsageBudgetUsd,
   type PlanId,
 } from "@/lib/billing-plans"
+import { getUsageAvailability } from "@/lib/db/usage-limits"
 
 type ActivityPoint = {
   date: string
@@ -21,6 +21,10 @@ type SpendPoint = {
 export type UsageAnalytics = {
   totalRequests: number
   monthRequests: number
+  monthlyRequestLimit: number | null
+  remainingRequests: number | null
+  usagePercent: number | null
+  isExhausted: boolean
   activeDaysLast14: number
   plan: PlanId
   status: string
@@ -72,25 +76,27 @@ async function getUsageSource(
       .eq("user_id", userId)
       .eq("event_type", "chat_request_completed")
       .gte("occurred_at", start14Iso),
+    service
+      .from("usage_events")
+      .select("event_key", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("event_type", "chat_request_completed")
+      .in("request_trigger", ["regenerate-message", "resume-stream"]),
+    service
+      .from("usage_events")
+      .select("event_key", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("event_type", "chat_request_completed")
+      .in("request_trigger", ["regenerate-message", "resume-stream"])
+      .gte("occurred_at", monthStartIso),
+    service
+      .from("usage_events")
+      .select("occurred_at")
+      .eq("user_id", userId)
+      .eq("event_type", "chat_request_completed")
+      .in("request_trigger", ["regenerate-message", "resume-stream"])
+      .gte("occurred_at", start14Iso),
   ])
-
-  const [totalRequestsResult, monthRequestsResult, recentRequestsResult] =
-    usageEventsQueries
-
-  const usageEventsAvailable = usageEventsQueries.every(
-    (result) => !result.error
-  )
-
-  if (usageEventsAvailable) {
-    return {
-      totalRequests: totalRequestsResult.count ?? 0,
-      monthRequests: monthRequestsResult.count ?? 0,
-      recentRequestTimestamps:
-        recentRequestsResult.data?.flatMap((row) =>
-          row.occurred_at ? [row.occurred_at] : []
-        ) ?? [],
-    }
-  }
 
   const fallbackQueries = await Promise.all([
     service
@@ -115,24 +121,83 @@ async function getUsageSource(
       .gte("created_at", start14Iso),
   ])
 
+  const [
+    totalRequestsResult,
+    monthRequestsResult,
+    recentRequestsResult,
+    regenerateTotalResult,
+    regenerateMonthResult,
+    regenerateRecentResult,
+  ] = usageEventsQueries
   const [fallbackTotalResult, fallbackMonthResult, fallbackRecentResult] =
     fallbackQueries
 
+  const usageEventsAvailable = usageEventsQueries.every(
+    (result) => !result.error
+  )
+  const fallbackAvailable = fallbackQueries.every((result) => !result.error)
+
+  const usageEventsTotal = usageEventsAvailable
+    ? (totalRequestsResult.count ?? 0)
+    : 0
+  const usageEventsMonth = usageEventsAvailable
+    ? (monthRequestsResult.count ?? 0)
+    : 0
+  const regenerateTotal = usageEventsAvailable
+    ? (regenerateTotalResult?.count ?? 0)
+    : 0
+  const regenerateMonth = usageEventsAvailable
+    ? (regenerateMonthResult?.count ?? 0)
+    : 0
+  const fallbackTotal = fallbackAvailable ? (fallbackTotalResult.count ?? 0) : 0
+  const fallbackMonth = fallbackAvailable ? (fallbackMonthResult.count ?? 0) : 0
+
+  if (!usageEventsAvailable && !fallbackAvailable) {
+    return {
+      totalRequests: 0,
+      monthRequests: 0,
+      recentRequestTimestamps: [],
+    }
+  }
+
+  const combinedTotal = Math.max(
+    usageEventsTotal,
+    fallbackTotal + regenerateTotal
+  )
+  const combinedMonth = Math.max(
+    usageEventsMonth,
+    fallbackMonth + regenerateMonth
+  )
+
+  const usageRecent =
+    recentRequestsResult.data?.flatMap((row) =>
+      row.occurred_at ? [row.occurred_at] : []
+    ) ?? []
+  const fallbackRecent =
+    fallbackRecentResult.data?.flatMap((row) =>
+      row.created_at ? [row.created_at] : []
+    ) ?? []
+  const regenerateRecent =
+    regenerateRecentResult?.data?.flatMap((row) =>
+      row.occurred_at ? [row.occurred_at] : []
+    ) ?? []
+
+  const fallbackRecentMerged = [...fallbackRecent, ...regenerateRecent]
+  const recentRequestTimestamps =
+    fallbackRecentMerged.length > usageRecent.length
+      ? fallbackRecentMerged
+      : usageRecent
+
   return {
-    totalRequests: fallbackTotalResult.count ?? 0,
-    monthRequests: fallbackMonthResult.count ?? 0,
-    recentRequestTimestamps:
-      fallbackRecentResult.data?.flatMap((row) =>
-        row.created_at ? [row.created_at] : []
-      ) ?? [],
+    totalRequests: combinedTotal,
+    monthRequests: combinedMonth,
+    recentRequestTimestamps,
   }
 }
 
 export async function getUsageAnalytics(
   userId: string
 ): Promise<UsageAnalytics> {
-  const supabase = await createClient()
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -143,13 +208,9 @@ export async function getUsageAnalytics(
   const monthStartIso = monthStart.toISOString()
   const start14Iso = start14.toISOString()
 
-  const [usageSource, subscriptionResult] = await Promise.all([
+  const [usageSource, usageAvailability] = await Promise.all([
     getUsageSource(userId, monthStartIso, start14Iso),
-    supabase
-      .from("subscriptions")
-      .select("plan, status, billing_interval")
-      .eq("user_id", userId)
-      .maybeSingle(),
+    getUsageAvailability(userId),
   ])
 
   const buckets: Record<string, ActivityPoint> = {}
@@ -172,13 +233,13 @@ export async function getUsageAnalytics(
   const activity = Object.values(buckets)
   const activeDaysLast14 = activity.filter((point) => point.requests > 0).length
 
-  const plan = getBillingPlan(subscriptionResult.data?.plan).id
+  const plan = usageAvailability.plan
   const includedRequestsLabel = formatApproximateRequests(
     getBillingPlan(plan).approximateMonthlyRequests
   )
   const monthlyUsageBudgetUsd = getMonthlyUsageBudgetUsd(
     plan,
-    subscriptionResult.data?.billing_interval ?? null
+    usageAvailability.billingInterval
   )
 
   const daysInMonth = new Date(
@@ -200,10 +261,25 @@ export async function getUsageAnalytics(
 
   return {
     totalRequests: usageSource.totalRequests,
-    monthRequests: usageSource.monthRequests,
+    monthRequests: usageAvailability.monthRequests,
+    monthlyRequestLimit: usageAvailability.monthlyRequestLimit,
+    remainingRequests: usageAvailability.remainingRequests,
+    usagePercent:
+      usageAvailability.monthlyRequestLimit &&
+      usageAvailability.monthlyRequestLimit > 0
+        ? Math.min(
+            100,
+            Math.round(
+              (usageAvailability.monthRequests /
+                usageAvailability.monthlyRequestLimit) *
+                100
+            )
+          )
+        : null,
+    isExhausted: !usageAvailability.isAvailable,
     activeDaysLast14,
     plan,
-    status: subscriptionResult.data?.status ?? "active",
+    status: usageAvailability.status,
     monthlyUsageBudgetUsd,
     includedRequestsLabel,
     activity,

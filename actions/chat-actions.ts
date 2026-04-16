@@ -15,6 +15,7 @@ import {
   extractTextFromMessageParts,
   type ChatAttachment,
 } from "@/lib/chat-attachments"
+import { getUsageAvailability } from "@/lib/db/usage-limits"
 import type { Json } from "@/types/supabase"
 
 const DEV_AUTH_BYPASS =
@@ -26,7 +27,13 @@ export async function startChat(
   attachments: ChatAttachment[] = [],
   agentId?: string,
   model?: string
-): Promise<{ chatId?: string; redirectTo?: string; error?: string }> {
+): Promise<{
+  chatId?: string
+  redirectTo?: string
+  error?: string
+  remainingRequests?: number | null
+  monthlyRequestLimit?: number | null
+}> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -36,6 +43,15 @@ export async function startChat(
   const userId = user?.id ?? (DEV_AUTH_BYPASS ? bypassUserId : undefined)
 
   if (!userId) return { redirectTo: "/login" }
+
+  const usage = await getUsageAvailability(userId)
+  if (!usage.isAvailable) {
+    return {
+      error: "out_of_usage",
+      remainingRequests: usage.remainingRequests,
+      monthlyRequestLimit: usage.monthlyRequestLimit,
+    }
+  }
 
   const parts = buildUserMessageParts(message, attachments)
   const content = extractTextFromMessageParts(parts)
@@ -113,61 +129,5 @@ export async function removeMultipleChatsAction(
   } = await supabase.auth.getUser()
   if (!user || !chatIds.length) return
   await deleteMultipleChats(user.id, chatIds)
-  revalidatePath("/dashboard", "layout")
-}
-
-export async function saveTestExchangeAction(
-  chatId: string,
-  userText: string,
-  assistantText: string
-): Promise<void> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) return
-
-  const userContent = userText.trim()
-  const assistantContent = assistantText.trim()
-  if (!chatId || !userContent || !assistantContent) return
-
-  const { data: chat } = await supabase
-    .from("chats")
-    .select("id, user_id, title")
-    .eq("id", chatId)
-    .eq("user_id", user.id)
-    .single()
-
-  if (!chat) return
-
-  const { data: recent } = await supabase
-    .from("messages")
-    .select("role, content")
-    .eq("chat_id", chatId)
-    .order("created_at", { ascending: false })
-    .limit(2)
-
-  const last = recent ?? []
-  if (
-    last.length === 2 &&
-    last[0]?.role === "assistant" &&
-    last[0]?.content === assistantContent &&
-    last[1]?.role === "user" &&
-    last[1]?.content === userContent
-  ) {
-    return
-  }
-
-  await createMessage(chatId, user.id, "user", userContent)
-  await createMessage(chatId, user.id, "assistant", assistantContent)
-
-  if (chat.title === "New chat") {
-    const title = userContent.slice(0, 60)
-    if (title) {
-      await updateChatTitle(chatId, title)
-    }
-  }
-
   revalidatePath("/dashboard", "layout")
 }

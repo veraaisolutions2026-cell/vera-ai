@@ -102,13 +102,6 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
     showSuccess("Travers prompt saved successfully.")
   }
 
-  const activeContent =
-    mode === "preview"
-      ? (previewPrompt ?? "")
-      : mode === "edit"
-        ? editValue
-        : currentPrompt
-
   return (
     <div className="flex flex-col gap-6">
       {/* Status bar */}

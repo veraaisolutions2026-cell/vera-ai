@@ -300,10 +300,6 @@ export function ChatMessage({
   const [isEditingUserMessage, setIsEditingUserMessage] = useState(false)
   const [userDraft, setUserDraft] = useState(content)
   const [isSavingUserEdit, setIsSavingUserEdit] = useState(false)
-  // true while the reveal interval is actively draining the buffer, so the
-  // non-streaming render keeps using liveContent instead of snapping to the
-  // full content string.
-  const [revealInProgress, setRevealInProgress] = useState(false)
   const streamBufferRef = useRef("")
   const prevRawContentRef = useRef("")
   const streamedOnceRef = useRef(false)
@@ -313,7 +309,6 @@ export function ChatMessage({
     prevRawContentRef.current = ""
     streamedOnceRef.current = false
     setLiveContent("")
-    setRevealInProgress(false)
   }, [messageId])
 
   useEffect(() => {
@@ -332,7 +327,6 @@ export function ChatMessage({
       streamBufferRef.current = content
       prevRawContentRef.current = content
       setLiveContent("")
-      setRevealInProgress(true)
       return
     }
 
@@ -340,7 +334,6 @@ export function ChatMessage({
       // Streaming ended without revealOnMount (seen message or motion reduced).
       streamBufferRef.current = ""
       prevRawContentRef.current = content
-      setRevealInProgress(false)
       setLiveContent(content)
       return
     }
@@ -366,8 +359,6 @@ export function ChatMessage({
     const id = setInterval(() => {
       const queued = streamBufferRef.current
       if (!queued) {
-        // Buffer drained — reveal complete.
-        setRevealInProgress(false)
         return
       }
 
@@ -391,6 +382,15 @@ export function ChatMessage({
 
     async function handleSaveEdit() {
       if (!messageId || !onUserEdit) return
+
+      if (attachments.length > 0) {
+        toast.error(
+          "Messages with attachments can't be edited. Please start a new message."
+        )
+        setIsEditingUserMessage(false)
+        setUserDraft(content)
+        return
+      }
 
       const trimmed = userDraft.trim()
       if (!trimmed || trimmed === content.trim()) {
@@ -685,7 +685,6 @@ export function ThinkingIndicator({
   const [idx, setIdx] = useState(0)
 
   useEffect(() => {
-    setIdx(0)
     const id = setInterval(() => setIdx((p) => (p + 1) % phrases.length), 3000)
     return () => clearInterval(id)
   }, [phrases])

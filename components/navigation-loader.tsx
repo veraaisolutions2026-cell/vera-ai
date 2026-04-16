@@ -40,7 +40,7 @@ export function NavigationLoader({
 }: NavigationLoaderProps) {
   const pathname = usePathname()
   const [isNavigating, setIsNavigating] = useState(false)
-  const [prevPath, setPrevPath] = useState(pathname)
+  const prevPathRef = useRef(pathname)
   const [panelRect, setPanelRect] = useState<Rect | null>(null)
   const timeoutRef = useRef<number | null>(null)
   const isDashboardRoute = pathname.startsWith("/dashboard")
@@ -48,15 +48,17 @@ export function NavigationLoader({
     mode === "dashboard" ? isDashboardRoute : !isDashboardRoute
 
   useEffect(() => {
-    if (pathname !== prevPath) {
+    if (pathname !== prevPathRef.current) {
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current)
         timeoutRef.current = null
       }
-      setIsNavigating(false)
-      setPrevPath(pathname)
+      window.setTimeout(() => {
+        setIsNavigating(false)
+      }, 0)
+      prevPathRef.current = pathname
     }
-  }, [pathname, prevPath])
+  }, [pathname])
 
   useEffect(() => {
     if (!shouldHandleNavigation) return

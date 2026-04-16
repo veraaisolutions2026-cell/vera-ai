@@ -22,6 +22,7 @@ import { createMessage } from "@/lib/db/messages"
 import { resolveModelId, supportsReasoningForModel } from "@/lib/models"
 import { createServiceClient } from "@/lib/supabase/service"
 import { recordUsageEvent } from "@/lib/db/usage-events"
+import { getUsageAvailability } from "@/lib/db/usage-limits"
 import type { Json } from "@/types/supabase"
 
 export const maxDuration = 60
@@ -97,31 +98,6 @@ function getLastUserMessage(messages: UIMessage[]): UIMessage | null {
   return null
 }
 
-function withOverriddenLastUserText(
-  messages: UIMessage[],
-  userText: string
-): UIMessage[] {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i]
-    if (message?.role !== "user") continue
-
-    const updatedParts = message.parts.some((part) => part.type === "text")
-      ? message.parts.map((part) =>
-          part.type === "text" ? { ...part, text: userText } : part
-        )
-      : ([
-          ...message.parts,
-          { type: "text", text: userText },
-        ] as UIMessage["parts"])
-
-    return messages.map((entry, index) =>
-      index === i ? { ...entry, parts: updatedParts } : entry
-    )
-  }
-
-  return messages
-}
-
 function getLastUserTurn(messages: UIMessage[]): {
   turnKey: string
   text: string
@@ -189,6 +165,25 @@ function createReplayTurnResponse(
       "x-vera-turn-state": turnState,
     },
   })
+}
+
+function createOutOfUsageResponse(
+  remainingRequests: number | null,
+  monthlyRequestLimit: number | null
+): Response {
+  return Response.json(
+    {
+      error: "out_of_usage",
+      remainingRequests,
+      monthlyRequestLimit,
+    },
+    {
+      status: 402,
+      headers: {
+        "x-vera-turn-state": "out-of-usage",
+      },
+    }
+  )
 }
 
 async function prepareMessagesForModel(
@@ -316,6 +311,14 @@ export async function POST(
   const lastUserPersistedParts = toPersistedMessageParts(lastUserMessage?.parts)
   if (!lastUserTurn) {
     return new Response("Bad request", { status: 400 })
+  }
+
+  const usageAvailability = await getUsageAvailability(userId)
+  if (!usageAvailability.isAvailable) {
+    return createOutOfUsageResponse(
+      usageAvailability.remainingRequests,
+      usageAvailability.monthlyRequestLimit
+    )
   }
 
   const requestTrigger = body.trigger ?? "submit-message"
@@ -630,6 +633,25 @@ export async function POST(
         .filter(Boolean)
       const lastAssistantText =
         assistantMessages[assistantMessages.length - 1] ?? ""
+      let usageRecorded = false
+
+      const recordUsageIfNeeded = async () => {
+        if (usageRecorded || !lastAssistantText) return
+
+        await recordUsageEvent({
+          eventKey: usageEventKey,
+          userId,
+          chatId: chat.id,
+          turnKey: resolvedTurnKey,
+          source: "chat",
+          model: resolvedModelId,
+          requestTrigger,
+          userMessageChars: lastUserText.length,
+          assistantMessageChars: lastAssistantText.length,
+        })
+
+        usageRecorded = true
+      }
 
       let pairPersisted = false
 
@@ -684,6 +706,8 @@ export async function POST(
         }
 
         if (pairPersisted) {
+          await recordUsageIfNeeded()
+
           await bookkeepingSupabase
             .from("chat_turn_pairs")
             .delete()
@@ -760,17 +784,7 @@ export async function POST(
       }
 
       if (lastAssistantText) {
-        await recordUsageEvent({
-          eventKey: usageEventKey,
-          userId,
-          chatId: chat.id,
-          turnKey: resolvedTurnKey,
-          source: "chat",
-          model: resolvedModelId,
-          requestTrigger,
-          userMessageChars: lastUserText.length,
-          assistantMessageChars: lastAssistantText.length,
-        })
+        await recordUsageIfNeeded()
       }
 
       revalidatePath("/dashboard", "layout")

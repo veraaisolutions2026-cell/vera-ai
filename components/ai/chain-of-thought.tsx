@@ -4,10 +4,8 @@ import { useControllableState } from "@radix-ui/react-use-controllable-state"
 import {
   ChevronDownIcon,
   DotIcon,
-  ImageIcon,
   SparklesIcon,
   type LucideIcon,
-  SearchIcon,
 } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
 import { createContext, memo, useContext, useMemo } from "react"
@@ -38,7 +36,7 @@ const useChainOfThought = () => {
   return context
 }
 
-export type ChainOfThoughtProps = ComponentProps<"div"> & {
+type ChainOfThoughtProps = ComponentProps<"div"> & {
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
@@ -77,9 +75,7 @@ export const ChainOfThought = memo(
   }
 )
 
-export type ChainOfThoughtHeaderProps = ComponentProps<
-  typeof CollapsibleTrigger
->
+type ChainOfThoughtHeaderProps = ComponentProps<typeof CollapsibleTrigger>
 
 export const ChainOfThoughtHeader = memo(
   ({ className, children, ...props }: ChainOfThoughtHeaderProps) => {
@@ -110,7 +106,7 @@ export const ChainOfThoughtHeader = memo(
   }
 )
 
-export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
+type ChainOfThoughtStepProps = ComponentProps<"div"> & {
   icon?: LucideIcon
   label: ReactNode
   description?: ReactNode
@@ -159,9 +155,9 @@ export const ChainOfThoughtStep = memo(
   }
 )
 
-export type ChainOfThoughtSearchResultsProps = ComponentProps<"div">
+type ChainOfThoughtSearchResultsProps = ComponentProps<"div">
 
-export const ChainOfThoughtSearchResults = memo(
+const ChainOfThoughtSearchResults = memo(
   ({ className, ...props }: ChainOfThoughtSearchResultsProps) => (
     <div
       className={cn("flex flex-wrap items-center gap-2", className)}
@@ -170,9 +166,9 @@ export const ChainOfThoughtSearchResults = memo(
   )
 )
 
-export type ChainOfThoughtSearchResultProps = ComponentProps<typeof Badge>
+type ChainOfThoughtSearchResultProps = ComponentProps<typeof Badge>
 
-export const ChainOfThoughtSearchResult = memo(
+const ChainOfThoughtSearchResult = memo(
   ({ className, children, ...props }: ChainOfThoughtSearchResultProps) => (
     <Badge
       className={cn("gap-1 px-2 py-0.5 text-xs font-normal", className)}
@@ -184,9 +180,7 @@ export const ChainOfThoughtSearchResult = memo(
   )
 )
 
-export type ChainOfThoughtContentProps = ComponentProps<
-  typeof CollapsibleContent
->
+type ChainOfThoughtContentProps = ComponentProps<typeof CollapsibleContent>
 
 export const ChainOfThoughtContent = memo(
   ({ className, children, ...props }: ChainOfThoughtContentProps) => {
@@ -209,11 +203,11 @@ export const ChainOfThoughtContent = memo(
   }
 )
 
-export type ChainOfThoughtImageProps = ComponentProps<"div"> & {
+type ChainOfThoughtImageProps = ComponentProps<"div"> & {
   caption?: string
 }
 
-export const ChainOfThoughtImage = memo(
+const ChainOfThoughtImage = memo(
   ({ className, children, caption, ...props }: ChainOfThoughtImageProps) => (
     <div className={cn("mt-2 space-y-2", className)} {...props}>
       <div className="relative flex max-h-88 items-center justify-center overflow-hidden rounded-lg bg-muted p-3">

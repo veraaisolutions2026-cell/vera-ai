@@ -18,7 +18,7 @@ type BillingPlan = {
   features: string[]
 }
 
-export const BILLING_PLANS: Record<PlanId, BillingPlan> = {
+const BILLING_PLANS: Record<PlanId, BillingPlan> = {
   free: {
     id: "free",
     name: "Starter",

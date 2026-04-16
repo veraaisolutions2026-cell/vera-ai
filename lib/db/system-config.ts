@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 
-export async function getSystemConfig(key: string): Promise<string | null> {
+async function getSystemConfig(key: string): Promise<string | null> {
   const supabase = await createClient()
   const { data } = await supabase
     .from("system_config")

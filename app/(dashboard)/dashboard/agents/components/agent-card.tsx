@@ -128,14 +128,23 @@ export function AgentCard({ agent, editable = false }: Props) {
           <span className="text-[10px] text-muted-foreground/60">
             {getModelLabel(agent.base_model)}
           </span>
-          {editable && (
+          <div className="flex items-center gap-2">
             <Link
-              href={`/dashboard/agents/${agent.id}`}
-              className="text-[11px] text-muted-foreground underline-offset-2 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:underline"
+              href={`/dashboard/chat?agent=${encodeURIComponent(agent.id)}&fromAgentCard=1`}
+              className="inline-flex h-7 items-center rounded-full border border-border/60 px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
             >
-              Edit
+              Start Chat
             </Link>
-          )}
+
+            {editable && (
+              <Link
+                href={`/dashboard/agents/${agent.id}`}
+                className="text-[11px] text-muted-foreground underline-offset-2 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:underline"
+              >
+                Edit
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

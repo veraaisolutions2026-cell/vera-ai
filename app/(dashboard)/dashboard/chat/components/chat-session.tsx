@@ -447,18 +447,12 @@ export function ChatSession({
   const latestTurnStateRef = useRef<string | null>(null)
   const bootstrapAttemptRef = useRef<Record<string, number>>({})
   const bootstrapFallbackToastShownRef = useRef<Record<string, boolean>>({})
-  const deadStateAutoRecoveryAttemptedRef = useRef<Record<string, boolean>>({})
   const bootstrapWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
   const seenMessageIdsRef = useRef<Set<string>>(new Set())
   const seenMessageIdsInitializedRef = useRef(false)
   const branchStorageHydratedRef = useRef(false)
-  const branchSelectInFlightRef = useRef<Record<string, boolean>>({})
-  const branchSelectQueuedIndexRef = useRef<Record<string, number | undefined>>(
-    {}
-  )
-  const regenerateInFlightAssistantIdsRef = useRef<Set<string>>(new Set())
 
   if (!seenMessageIdsInitializedRef.current) {
     const seen = new Set<string>()
@@ -476,6 +470,12 @@ export function ChatSession({
         fetch: async (input, init) => {
           const response = await fetch(input, init)
           latestTurnStateRef.current = response.headers.get("x-vera-turn-state")
+
+          if (response.status === 402) {
+            latestTurnStateRef.current = "out-of-usage"
+            throw new Error("out_of_usage")
+          }
+
           return response
         },
       }),
@@ -552,46 +552,6 @@ export function ChatSession({
     setShowDeadStateFallback(false)
   }, [])
 
-  const getAssistantTextByMessageId = useCallback(
-    (assistantMessageId: string): string | null => {
-      const assistantMessage = latestMessagesRef.current.find(
-        (message) =>
-          message.id === assistantMessageId && message.role === "assistant"
-      )
-      if (!assistantMessage) return null
-
-      const text = getTextFromParts(assistantMessage.parts).trim()
-      return text || null
-    },
-    []
-  )
-
-  const setAssistantVariantAtIndex = useCallback(
-    (canonicalKey: string, index: number, assistantMessageId: string) => {
-      const assistantText = getAssistantTextByMessageId(assistantMessageId)
-      if (!assistantText) return
-
-      setUserBranchMap((previous) => {
-        const state = previous[canonicalKey]
-        if (!state || index < 0 || index >= state.assistantVariants.length) {
-          return previous
-        }
-
-        const nextAssistantVariants = [...state.assistantVariants]
-        nextAssistantVariants[index] = assistantText
-
-        return {
-          ...previous,
-          [canonicalKey]: {
-            ...state,
-            assistantVariants: nextAssistantVariants,
-          },
-        }
-      })
-    },
-    [getAssistantTextByMessageId]
-  )
-
   useEffect(() => {
     let didChange = false
     for (const message of messages) {
@@ -661,7 +621,12 @@ export function ChatSession({
     if (pendingFirstMessage) {
       latestTurnStateRef.current = null
 
-      void sendMessage({ text: pendingFirstMessage }).catch(() => {
+      void sendMessage({ text: pendingFirstMessage }).catch((error) => {
+        if (isOutOfUsageError(error)) {
+          showOutOfUsageToast()
+          return
+        }
+
         toast.error(
           "Response did not start. Server may be busy or your connection is unstable."
         )
@@ -707,7 +672,12 @@ export function ChatSession({
 
     latestTurnStateRef.current = null
 
-    void sendMessage().catch(() => {
+    void sendMessage().catch((error) => {
+      if (isOutOfUsageError(error)) {
+        showOutOfUsageToast()
+        return
+      }
+
       toast.error(
         "Response did not start. Server may be busy or your connection is unstable."
       )
@@ -766,16 +736,6 @@ export function ChatSession({
 
     return map
   }, [flatMessages])
-
-  const userBranchStateByCanonicalId = useMemo(() => {
-    const map = new Map<string, UserBranchState>()
-
-    for (const [messageId, state] of Object.entries(userBranchMap)) {
-      map.set(stripMessageIdSuffix(messageId), state)
-    }
-
-    return map
-  }, [userBranchMap])
 
   useEffect(() => {
     if (status !== "ready") return
@@ -890,6 +850,43 @@ export function ChatSession({
     [lockedModel]
   )
 
+  const showOutOfUsageToast = useCallback(() => {
+    toast.error(
+      "You are out of monthly usage. Upgrade your plan to continue.",
+      {
+        action: {
+          label: "Upgrade plan",
+          onClick: () => router.push("/dashboard/billing"),
+        },
+      }
+    )
+  }, [router])
+
+  const hasUsageAvailable = useCallback(async () => {
+    try {
+      const response = await fetch("/api/usage/availability", {
+        method: "GET",
+        cache: "no-store",
+      })
+
+      if (!response.ok) return true
+
+      const payload = (await response.json()) as { isAvailable?: boolean }
+      return payload.isAvailable !== false
+    } catch {
+      // Do not block sending if the usage-check endpoint is temporarily unreachable.
+      return true
+    }
+  }, [])
+
+  const isOutOfUsageError = useCallback((error: unknown) => {
+    if (error instanceof Error && error.message === "out_of_usage") {
+      return true
+    }
+
+    return latestTurnStateRef.current === "out-of-usage"
+  }, [])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [flatMessages, isStreaming])
@@ -930,6 +927,12 @@ export function ChatSession({
     const text = input.trim()
     if ((text.length === 0 && attachedFiles.length === 0) || isStreaming) return
 
+    const usageAvailable = await hasUsageAvailable()
+    if (!usageAvailable) {
+      showOutOfUsageToast()
+      return
+    }
+
     latestTurnStateRef.current = null
     hideDeadState()
     setInput("")
@@ -942,7 +945,12 @@ export function ChatSession({
         text,
         files: buildAttachmentFileParts(files),
       })
-    } catch {
+    } catch (error) {
+      if (isOutOfUsageError(error)) {
+        showOutOfUsageToast()
+        return
+      }
+
       showDeadState(
         "We could not complete this response. Please retry once your connection is stable."
       )
@@ -954,8 +962,11 @@ export function ChatSession({
     input,
     isStreaming,
     attachedFiles,
+    hasUsageAvailable,
     sendMessage,
     hideDeadState,
+    isOutOfUsageError,
+    showOutOfUsageToast,
     showDeadState,
   ])
 
@@ -966,13 +977,25 @@ export function ChatSession({
 
     try {
       await sendMessage()
-    } catch {
+    } catch (error) {
+      if (isOutOfUsageError(error)) {
+        showOutOfUsageToast()
+        return
+      }
+
       showDeadState(
         "Retry failed again. Please check network stability and try once more."
       )
       toast.error("Retry failed. Please check your network and try again.")
     }
-  }, [isStreaming, sendMessage, hideDeadState, showDeadState])
+  }, [
+    hideDeadState,
+    isOutOfUsageError,
+    isStreaming,
+    sendMessage,
+    showDeadState,
+    showOutOfUsageToast,
+  ])
 
   const handleRetry = useCallback(
     async (messageId: string) => {

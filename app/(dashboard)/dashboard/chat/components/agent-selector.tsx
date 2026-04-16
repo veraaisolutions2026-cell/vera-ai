@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Bot, Check, ChevronDown } from "lucide-react"
 import {
   Popover,
@@ -19,14 +19,52 @@ type Props = {
 
 export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
   const [open, setOpen] = useState(false)
+  const [contentSide, setContentSide] = useState<"top" | "bottom">("bottom")
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   const builtins = agents.filter((a) => a.is_builtin)
   const custom = agents.filter((a) => !a.is_builtin)
+
+  useEffect(() => {
+    if (!open) return
+
+    const VIEWPORT_PADDING = 8
+    const ESTIMATED_CONTENT_HEIGHT = 304
+
+    const updatePopoverSide = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+
+      const rect = trigger.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_PADDING
+      const spaceAbove = rect.top - VIEWPORT_PADDING
+
+      if (
+        spaceBelow < ESTIMATED_CONTENT_HEIGHT &&
+        spaceAbove > Math.max(spaceBelow, 120)
+      ) {
+        setContentSide("top")
+        return
+      }
+
+      setContentSide("bottom")
+    }
+
+    updatePopoverSide()
+    window.addEventListener("resize", updatePopoverSide)
+    window.addEventListener("scroll", updatePopoverSide, true)
+
+    return () => {
+      window.removeEventListener("resize", updatePopoverSide)
+      window.removeEventListener("scroll", updatePopoverSide, true)
+    }
+  }, [open])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           className={cn(
             "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors",
             selectedAgent
@@ -49,8 +87,11 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
         </button>
       </PopoverTrigger>
       <PopoverContent
+        side={contentSide}
         align="start"
-        className="max-h-72 w-64 overflow-y-auto p-1"
+        collisionPadding={8}
+        avoidCollisions
+        className="max-h-[min(18rem,calc(100vh-1rem))] w-64 overflow-y-auto p-1"
         sideOffset={8}
       >
         <button

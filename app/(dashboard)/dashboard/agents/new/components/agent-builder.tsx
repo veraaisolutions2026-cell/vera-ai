@@ -389,6 +389,7 @@ function AcaMessage({
 
   useEffect(() => {
     if (animate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWasAnimated(true)
       setIsCoTOpen(true) // open while animating
     } else if (wasAnimated) {
@@ -690,6 +691,7 @@ export function AgentBuilder() {
       latestAssistantId !== lastAnimatedIdRef.current
     ) {
       lastAnimatedIdRef.current = latestAssistantId
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnimatingId(latestAssistantId)
     }
   }, [status, latestAssistantId])
@@ -710,7 +712,10 @@ export function AgentBuilder() {
         toast.success(
           `Travers created ${result.name ?? "your agent"} successfully.`
         )
-        if (result.agent_id) setCreatedAgentId(result.agent_id)
+        if (result.agent_id) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setCreatedAgentId(result.agent_id)
+        }
       }
     }
   }, [messages])

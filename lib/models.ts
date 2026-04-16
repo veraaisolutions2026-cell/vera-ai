@@ -123,7 +123,7 @@ function shouldPreferModel(
   return false
 }
 
-export function toModelOption(model: AnthropicModelInfo): ModelOption | null {
+function toModelOption(model: AnthropicModelInfo): ModelOption | null {
   const parsed = parseClaudeModelId(model.id)
   if (!parsed) return null
 

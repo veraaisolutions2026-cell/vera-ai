@@ -16,8 +16,6 @@ const THEMES = [
   { id: "system", label: "System", icon: Monitor },
 ] as const
 
-type ThemeId = (typeof THEMES)[number]["id"]
-
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
 

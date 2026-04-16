@@ -5,6 +5,7 @@ import { useRef, useState } from "react"
 import { FileText, Loader2, Upload } from "lucide-react"
 import { AgentIconPicker } from "@/components/agent-icon-picker"
 import { ModelPicker } from "@/components/model-picker"
+import Link from "next/link"
 import type { Agent } from "@/types/database"
 
 type Props = {
@@ -231,12 +232,12 @@ export function AgentForm({ agent, mode }: Props) {
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {mode === "edit" ? "Save changes" : "Create agent"}
         </button>
-        <a
+        <Link
           href="/admin/agents"
           className="px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Cancel
-        </a>
+        </Link>
       </div>
     </form>
   )
