@@ -35,9 +35,6 @@ const STREAM_RESPONSE_HEADERS = {
 
 const PENDING_ASSISTANT_CONTENT = "__vera_pending_response__"
 const LEGACY_PENDING_ASSISTANT_CONTENT = "__PENDING__"
-const DEV_AUTH_BYPASS =
-  process.env.NODE_ENV !== "production" &&
-  process.env.VERA_DEV_BYPASS_AUTH === "true"
 const AI_DEVTOOLS_ENABLED =
   process.env.NODE_ENV !== "production" &&
   process.env.VERA_ENABLE_AI_DEVTOOLS !== "false"
@@ -260,39 +257,29 @@ export async function POST(
 ) {
   const { id: chatId } = await params
 
-  const debugUserId = req.headers.get("x-vera-debug-user-id")?.trim() || null
   const sessionSupabase = await createClient()
-  const bypassSupabase = DEV_AUTH_BYPASS ? createServiceClient() : null
   const {
     data: { user },
   } = await sessionSupabase.auth.getUser()
 
-  const isBypass = !user && !!bypassSupabase
-  const supabase = bypassSupabase ?? sessionSupabase
+  const supabase = sessionSupabase
   const bookkeepingSupabase = createServiceClient()
 
-  if (!user && !isBypass) {
+  if (!user) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  const chat = isBypass
-    ? await supabase
-        .from("chats")
-        .select("*")
-        .eq("id", chatId)
-        .maybeSingle()
-        .then((r) => r.data)
-    : await getChat(chatId)
+  const chat = await getChat(chatId)
 
   if (!chat) {
     return new Response("Not found", { status: 404 })
   }
 
-  if (!isBypass && chat.user_id !== user!.id) {
+  if (chat.user_id !== user.id) {
     return new Response("Not found", { status: 404 })
   }
 
-  const userId = user?.id ?? debugUserId ?? chat.user_id
+  const userId = user.id
 
   let body: ChatRequestBody
   try {
@@ -583,16 +570,7 @@ export async function POST(
     }
   }
 
-  const selectedAgent = chat.agent_id
-    ? isBypass
-      ? await supabase
-          .from("agents")
-          .select("system_prompt")
-          .eq("id", chat.agent_id)
-          .maybeSingle()
-          .then((r) => r.data)
-      : await getAgent(chat.agent_id)
-    : null
+  const selectedAgent = chat.agent_id ? await getAgent(chat.agent_id) : null
   const systemPrompt =
     (selectedAgent?.system_prompt ?? DEFAULT_SYSTEM_PROMPT) + NO_EMOJI_SUFFIX
   const resolvedModelId = resolveModelId(chat.model)

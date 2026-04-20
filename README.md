@@ -54,8 +54,6 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 
-# Optional dev bypass (never enable in production)
-VERA_DEV_BYPASS_AUTH=false
 ```
 
 Notes:

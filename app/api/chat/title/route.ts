@@ -1,16 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
 import { resolveModelId } from "@/lib/models"
-import { createServiceClient } from "@/lib/supabase/service"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
 export const maxDuration = 30
-const DEV_AUTH_BYPASS =
-  process.env.NODE_ENV !== "production" &&
-  process.env.VERA_DEV_BYPASS_AUTH === "true"
 
 type TitleRequest = {
   seed?: string
@@ -29,17 +25,12 @@ function cleanTitle(raw: string): string {
 }
 
 export async function POST(req: Request) {
-  const debugUserId = req.headers.get("x-vera-debug-user-id")?.trim() || null
-  const sessionSupabase = await createClient()
-  const bypassSupabase = DEV_AUTH_BYPASS ? createServiceClient() : null
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await sessionSupabase.auth.getUser()
+  } = await supabase.auth.getUser()
 
-  const isBypass = !user && !!bypassSupabase
-  const supabase = bypassSupabase ?? sessionSupabase
-
-  if (!user && !isBypass) {
+  if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -77,12 +68,7 @@ export async function POST(req: Request) {
         .from("chats")
         .select("title, user_id")
         .eq("id", chatId)
-      const { data: chat } =
-        isBypass && !debugUserId
-          ? await chatLookup.single()
-          : await chatLookup
-              .eq("user_id", user?.id ?? debugUserId ?? "")
-              .single()
+      const { data: chat } = await chatLookup.eq("user_id", user.id).single()
 
       const currentTitle = chat?.title?.trim() ?? ""
       const isPlaceholder =
@@ -95,11 +81,7 @@ export async function POST(req: Request) {
           .from("chats")
           .update({ title })
           .eq("id", chatId)
-        if (isBypass && !debugUserId) {
-          await titleUpdate
-        } else {
-          await titleUpdate.eq("user_id", user?.id ?? debugUserId ?? "")
-        }
+        await titleUpdate.eq("user_id", user.id)
       }
     }
 

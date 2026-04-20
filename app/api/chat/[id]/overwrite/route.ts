@@ -11,9 +11,6 @@ type OverwriteBody = {
 
 const PENDING_ASSISTANT_CONTENT = "__vera_pending_response__"
 const LEGACY_PENDING_ASSISTANT_CONTENT = "__PENDING__"
-const DEV_AUTH_BYPASS =
-  process.env.NODE_ENV !== "production" &&
-  process.env.VERA_DEV_BYPASS_AUTH === "true"
 
 function stripMessageIdSuffix(id: string): string {
   return id.replace(/:(user|assistant)$/, "")
@@ -126,40 +123,28 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: chatId } = await params
-  const debugUserId = req.headers.get("x-vera-debug-user-id")?.trim() || null
-  const sessionSupabase = await createClient()
-  const bypassSupabase = DEV_AUTH_BYPASS ? createServiceClient() : null
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await sessionSupabase.auth.getUser()
+  } = await supabase.auth.getUser()
 
-  const isBypass = !user && !!bypassSupabase
-  const supabase = bypassSupabase ?? sessionSupabase
-
-  if (!user && !isBypass) {
+  if (!user) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const chat = isBypass
-    ? await supabase
-        .from("chats")
-        .select("id, user_id")
-        .eq("id", chatId)
-        .maybeSingle()
-        .then((r) => r.data)
-    : await supabase
-        .from("chats")
-        .select("id, user_id")
-        .eq("id", chatId)
-        .eq("user_id", user!.id)
-        .maybeSingle()
-        .then((r) => r.data)
+  const chat = await supabase
+    .from("chats")
+    .select("id, user_id")
+    .eq("id", chatId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+    .then((r) => r.data)
 
   if (!chat) {
     return Response.json({ error: "Not found" }, { status: 404 })
   }
 
-  const userId = user?.id ?? debugUserId ?? chat.user_id
+  const userId = user.id
 
   let body: OverwriteBody
   try {
