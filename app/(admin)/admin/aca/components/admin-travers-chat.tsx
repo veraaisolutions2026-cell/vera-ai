@@ -715,7 +715,7 @@ export function AdminTraversChat() {
             placeholder="Describe the agent you want Travers to build…"
             rows={1}
             disabled={isLoading}
-            className="min-h-[36px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
+            className="min-h-9 flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed outline-none placeholder:text-muted-foreground/50 disabled:opacity-50"
             style={{ maxHeight: "160px", overflowY: "auto" }}
           />
           <button
