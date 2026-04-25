@@ -1,15 +1,38 @@
 import { ArrowUpRight } from "lucide-react"
 import { toast } from "sonner"
+import type { PlanId } from "@/lib/billing-plans"
 
 type ShowUsageUpsellToastOptions = {
-  onUpgrade: () => void
+  reason: "usage-exhausted" | "feature-locked"
+  plan: PlanId
+  onUpgrade?: () => void
+  onContactSales?: () => void
 }
 
 export function showUsageUpsellToast({
+  reason,
+  plan,
   onUpgrade,
+  onContactSales,
 }: ShowUsageUpsellToastOptions) {
-  toast("Monthly limit reached.", {
-    description: "Upgrade your plan to continue chatting.",
+  const shouldContactSales =
+    reason === "usage-exhausted" && plan === "vera-intelligence"
+
+  const title =
+    reason === "feature-locked"
+      ? "Feature not available on this plan."
+      : "Monthly limit reached."
+
+  const description = shouldContactSales
+    ? "You have reached your request capacity. Contact sales to increase your workspace limit."
+    : reason === "feature-locked"
+      ? "Upgrade your plan to unlock this feature."
+      : "Upgrade your plan to continue chatting."
+
+  const actionLabel = shouldContactSales ? "Contact sales" : "Upgrade"
+
+  toast(title, {
+    description,
     classNames: {
       toast:
         "rounded-2xl border border-border bg-background text-foreground shadow-xl",
@@ -23,13 +46,18 @@ export function showUsageUpsellToast({
     action: {
       label: (
         <span className="inline-flex items-center gap-1.5">
-          Upgrade
+          {actionLabel}
           <ArrowUpRight className="h-3.5 w-3.5" />
         </span>
       ),
       onClick: () => {
-        window.dispatchEvent(new Event("vera:navigation-loader-start"))
-        onUpgrade()
+        if (!shouldContactSales) {
+          window.dispatchEvent(new Event("vera:navigation-loader-start"))
+          onUpgrade?.()
+          return
+        }
+
+        onContactSales?.()
       },
     },
   })

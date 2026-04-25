@@ -1,4 +1,4 @@
-export type PlanId = "free" | "pro" | "enterprise"
+export type PlanId = "vera-coach" | "vera-intelligence"
 
 type BillingPlan = {
   id: PlanId
@@ -19,52 +19,32 @@ type BillingPlan = {
 }
 
 const BILLING_PLANS: Record<PlanId, BillingPlan> = {
-  free: {
-    id: "free",
-    name: "Starter",
-    description: "For individuals exploring AI-assisted audit workflows.",
-    price: { monthly: 0, annual: 0 },
-    highlighted: false,
-    approximateMonthlyRequests: 40,
-    monthlyUsageBudgetUsd: {
-      monthly: 2.2,
-      annual: 2.2,
-    },
-    customAgentLimit: 0,
-    features: [
-      "3 built-in agents",
-      "About 40 requests / month",
-      "Export to Markdown & text",
-      "Community support",
-    ],
-  },
-  pro: {
-    id: "pro",
-    name: "Pro",
-    description: "For professionals running active audit engagements.",
+  "vera-coach": {
+    id: "vera-coach",
+    name: "Vera Coach",
+    description: "Chat-focused package with built-in agents.",
     price: { monthly: 49, annual: 39 },
-    highlighted: true,
+    highlighted: false,
     approximateMonthlyRequests: 500,
     monthlyUsageBudgetUsd: {
       monthly: 34.3,
       annual: 27.3,
     },
-    customAgentLimit: 10,
+    customAgentLimit: 0,
     features: [
-      "Unlimited built-in agents",
-      "Up to 10 custom agents",
+      "Chat workspace",
+      "Built-in agents",
       "About 500 requests / month",
       "PDF, Markdown & text export",
-      "File upload in chat",
-      "Priority support",
+      "No custom agent creation",
     ],
   },
-  enterprise: {
-    id: "enterprise",
-    name: "Enterprise",
-    description: "For teams and firms with advanced compliance requirements.",
+  "vera-intelligence": {
+    id: "vera-intelligence",
+    name: "Vera Intelligence",
+    description: "Advanced package with agent and knowledge capabilities.",
     price: { monthly: 149, annual: 119 },
-    highlighted: false,
+    highlighted: true,
     approximateMonthlyRequests: 1500,
     monthlyUsageBudgetUsd: {
       monthly: 104.3,
@@ -72,30 +52,26 @@ const BILLING_PLANS: Record<PlanId, BillingPlan> = {
     },
     customAgentLimit: null,
     features: [
-      "Everything in Pro",
       "Unlimited custom agents",
       "About 1,500 requests / month",
-      "Team workspace",
-      "White-label option",
-      "API access",
-      "Dedicated onboarding",
-      "SLA & custom contracts",
+      "Knowledge-base tooling",
+      "Agent-to-file linking",
+      "Priority support",
     ],
   },
 }
 
 export const BILLING_PLAN_LIST = [
-  BILLING_PLANS.free,
-  BILLING_PLANS.pro,
-  BILLING_PLANS.enterprise,
+  BILLING_PLANS["vera-coach"],
+  BILLING_PLANS["vera-intelligence"],
 ] as const
 
 export function getBillingPlan(plan: string | null | undefined): BillingPlan {
-  if (plan === "pro" || plan === "enterprise") {
+  if (plan === "vera-coach" || plan === "vera-intelligence") {
     return BILLING_PLANS[plan]
   }
 
-  return BILLING_PLANS.free
+  return BILLING_PLANS["vera-coach"]
 }
 
 export function getMonthlyUsageBudgetUsd(

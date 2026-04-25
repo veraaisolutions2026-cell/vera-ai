@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getSubscription } from "@/lib/db/subscriptions"
+import { isAdminUnlimitedModeEnabled } from "@/lib/db/admin-unlimited-mode"
 import { BillingPage } from "./components/billing-page"
 
 export default async function BillingRoute() {
@@ -11,7 +12,15 @@ export default async function BillingRoute() {
 
   if (!user) redirect("/login")
 
-  const subscription = await getSubscription(user.id)
+  const [subscription, isAdminUnlimitedMode] = await Promise.all([
+    getSubscription(user.id),
+    isAdminUnlimitedModeEnabled(user.id),
+  ])
 
-  return <BillingPage subscription={subscription} />
+  return (
+    <BillingPage
+      subscription={subscription}
+      isAdminUnlimitedMode={isAdminUnlimitedMode}
+    />
+  )
 }

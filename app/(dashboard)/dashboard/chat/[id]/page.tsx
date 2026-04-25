@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import type { UIMessage } from "ai"
 import { createClient } from "@/lib/supabase/server"
 import { getAllAgentsForUser } from "@/lib/db/agents"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { parseStoredMessageParts } from "@/lib/chat-attachments"
 import { getChat } from "@/lib/db/chats"
 import { getMessages } from "@/lib/db/messages"
@@ -9,10 +10,13 @@ import { ChatSession } from "../components/chat-session"
 
 export default async function ChatSessionPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ answerPreference?: string }>
 }) {
   const { id } = await params
+  const { answerPreference } = await searchParams
 
   const supabase = await createClient()
   const {
@@ -29,11 +33,21 @@ export default async function ChatSessionPage({
     notFound()
   }
 
-  const [messages, agents, profileResult] = await Promise.all([
+  const [messages, profileResult, layerAccess] = await Promise.all([
     getMessages(chat.id, user.id),
-    getAllAgentsForUser(user.id),
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    getUserLayerAccess(user.id),
   ])
+
+  const agents = await getAllAgentsForUser(user.id, layerAccess.layer)
+
+  const filteredAgents = agents.filter((agent) => {
+    if (agent.is_builtin) {
+      return layerAccess.allowBuiltInAgents
+    }
+
+    return layerAccess.allowCustomAgentCrud
+  })
 
   const userName =
     profileResult.data?.full_name ?? user.email?.split("@")[0] ?? "User"
@@ -70,21 +84,28 @@ export default async function ChatSessionPage({
     isBrandNewChat && !hasPendingAttachmentParts ? [] : allMessages
 
   const activeAgent = chat.agent_id
-    ? (agents.find((agent) => agent.id === chat.agent_id) ?? null)
+    ? (filteredAgents.find((agent) => agent.id === chat.agent_id) ?? null)
     : null
+  const initialAnswerPreference =
+    answerPreference === "short" || answerPreference === "long"
+      ? answerPreference
+      : null
 
   return (
     <ChatSession
       chatId={chat.id}
       initialTitle={chat.title}
       userName={userName}
-      agents={agents}
+      agents={filteredAgents}
       lockedModel={chat.model}
       initialMessages={initialMessages}
       pendingFirstMessage={
         hasPendingAttachmentParts ? undefined : pendingFirstMessage
       }
       selectedAgent={activeAgent}
+      initialAnswerPreference={
+        activeAgent ? null : (initialAnswerPreference ?? null)
+      }
     />
   )
 }

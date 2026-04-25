@@ -1,10 +1,10 @@
+import mammoth from "mammoth"
 import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import {
   CHAT_ATTACHMENTS_BUCKET,
   type ChatAttachment,
 } from "@/lib/chat-attachments"
-import mammoth from "mammoth"
 
 export const maxDuration = 30
 
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
 
   if (uploadError) {
     const message = uploadError.message.toLowerCase().includes("bucket")
-      ? `Storage bucket \"${CHAT_ATTACHMENTS_BUCKET}\" is not configured. Run the attachment SQL setup and retry.`
+      ? `Storage bucket "${CHAT_ATTACHMENTS_BUCKET}" is not configured. Run the attachment SQL setup and retry.`
       : "Failed to upload attachment"
 
     return Response.json({ error: message }, { status: 500 })

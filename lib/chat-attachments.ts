@@ -16,8 +16,10 @@ export type ChatAttachment = {
 export type VeraAttachmentMetadata = {
   attachmentType: "pdf" | "docx"
   storagePath: string
+  bucket: string
   extractedText?: string | null
   size: number
+  source?: "chat" | "knowledge-base"
 }
 
 export type PersistedProviderMetadata = {
@@ -85,8 +87,10 @@ export function buildAttachmentFileParts(
       vera: {
         attachmentType: attachment.type,
         storagePath: attachment.storagePath,
+        bucket: CHAT_ATTACHMENTS_BUCKET,
         extractedText: attachment.text ?? null,
         size: attachment.size,
+        source: "chat",
       },
     },
   }))
@@ -140,14 +144,18 @@ export function getVeraAttachmentMetadata(
   const storagePath = (veraMetadata as Record<string, unknown>).storagePath
   const extractedText = (veraMetadata as Record<string, unknown>).extractedText
   const size = (veraMetadata as Record<string, unknown>).size
+  const bucket = (veraMetadata as Record<string, unknown>).bucket
+  const source = (veraMetadata as Record<string, unknown>).source
 
   if (!attachmentType || typeof storagePath !== "string") return null
 
   return {
     attachmentType,
     storagePath,
+    bucket: typeof bucket === "string" ? bucket : CHAT_ATTACHMENTS_BUCKET,
     extractedText: typeof extractedText === "string" ? extractedText : null,
     size: typeof size === "number" ? size : 0,
+    source: source === "knowledge-base" ? "knowledge-base" : "chat",
   }
 }
 

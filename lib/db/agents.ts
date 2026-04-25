@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
+import { filterBuiltinAgentsForLayer } from "@/lib/db/builtin-agent-layer-access"
 import type { Agent } from "@/types/database"
 
-export async function getBuiltinAgents(): Promise<Agent[]> {
+type LayerName = "coach" | "intelligence"
+
+export async function getBuiltinAgents(layer?: LayerName): Promise<Agent[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("agents")
@@ -10,7 +13,11 @@ export async function getBuiltinAgents(): Promise<Agent[]> {
     .order("name")
 
   if (error) return []
-  return (data as Agent[]) ?? []
+
+  const agents = (data as Agent[]) ?? []
+  if (!layer) return agents
+
+  return filterBuiltinAgentsForLayer(agents, layer)
 }
 
 export async function getUserAgents(userId: string): Promise<Agent[]> {
@@ -26,7 +33,10 @@ export async function getUserAgents(userId: string): Promise<Agent[]> {
   return (data as Agent[]) ?? []
 }
 
-export async function getAllAgentsForUser(userId: string): Promise<Agent[]> {
+export async function getAllAgentsForUser(
+  userId: string,
+  layer?: LayerName
+): Promise<Agent[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("agents")
@@ -36,7 +46,11 @@ export async function getAllAgentsForUser(userId: string): Promise<Agent[]> {
     .order("name")
 
   if (error) return []
-  return (data as Agent[]) ?? []
+
+  const agents = (data as Agent[]) ?? []
+  if (!layer) return agents
+
+  return filterBuiltinAgentsForLayer(agents, layer)
 }
 
 export async function getAgent(agentId: string): Promise<Agent | null> {

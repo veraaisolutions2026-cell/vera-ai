@@ -1,85 +1,48 @@
 "use client"
 
-import { useRef, useState } from "react"
-import { CheckCircle2, FileText, Loader2, Save, Upload } from "lucide-react"
+import { useState } from "react"
+import { Loader2, Save } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/animate-ui/components/radix/alert-dialog"
 
 type Props = {
-  initialPrompt: string | null
+  initialPrompt: string
   initialUpdatedAt: string | null
+  source: "configured" | "default"
 }
 
 type Mode = "view" | "edit" | "preview"
 
-export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [currentPrompt, setCurrentPrompt] = useState(initialPrompt ?? "")
+export function AcaManager({ initialPrompt, initialUpdatedAt, source }: Props) {
+  const [currentPrompt, setCurrentPrompt] = useState(initialPrompt)
   const [updatedAt, setUpdatedAt] = useState(initialUpdatedAt)
   const [previewPrompt, setPreviewPrompt] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState(initialPrompt ?? "")
-  const [mode, setMode] = useState<Mode>(initialPrompt ? "view" : "edit")
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState(initialPrompt)
+  const [mode, setMode] = useState<Mode>("view")
+  const [promptSource, setPromptSource] = useState<"configured" | "default">(
+    source
+  )
 
-  const [formatting, setFormatting] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [successMsg, setSuccessMsg] = useState<string | null>(null)
-
-  function showSuccess(msg: string) {
-    setSuccessMsg(msg)
-    setTimeout(() => setSuccessMsg(null), 3000)
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ""
-
-    const allowed = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ]
-    if (!allowed.includes(file.type)) {
-      setError("Only PDF and DOCX files are supported.")
-      return
-    }
-
-    setFormatting(true)
-    setError(null)
-    setPreviewPrompt(null)
-    setUploadedFile(file.name)
-
-    const fd = new FormData()
-    fd.append("file", file)
-
-    const res = await fetch("/api/admin/aca/format", {
-      method: "POST",
-      body: fd,
-    })
-
-    setFormatting(false)
-
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string }
-      setError(data.error ?? "Failed to format file.")
-      return
-    }
-
-    const { formatted } = (await res.json()) as { formatted: string }
-    setPreviewPrompt(formatted)
-    setEditValue(formatted)
-    setMode("preview")
-  }
+  const [resetOpen, setResetOpen] = useState(false)
 
   async function handleSave(promptToSave: string) {
     if (!promptToSave.trim()) {
-      setError("Prompt cannot be empty.")
+      toast.error("Prompt cannot be empty.")
       return
     }
 
     setSaving(true)
-    setError(null)
 
     const res = await fetch("/api/admin/aca", {
       method: "POST",
@@ -90,7 +53,8 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
     setSaving(false)
 
     if (!res.ok) {
-      setError("Failed to save.")
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      toast.error(data.error ?? "Failed to save Travers prompt.")
       return
     }
 
@@ -98,81 +62,57 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
     setEditValue(promptToSave)
     setPreviewPrompt(null)
     setUpdatedAt(new Date().toISOString())
+    setPromptSource("configured")
     setMode("view")
-    showSuccess("Travers prompt saved successfully.")
+    toast.success("Travers prompt saved successfully.")
+  }
+
+  async function handleResetToDefault() {
+    setSaving(true)
+
+    const res = await fetch("/api/admin/aca", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "reset-default" }),
+    })
+
+    setSaving(false)
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      toast.error(data.error ?? "Failed to restore default Travers prompt.")
+      return
+    }
+
+    const data = (await res.json()) as {
+      prompt?: string
+      updated_at?: string
+    }
+    const nextPrompt = data.prompt ?? currentPrompt
+
+    setCurrentPrompt(nextPrompt)
+    setEditValue(nextPrompt)
+    setPreviewPrompt(null)
+    setUpdatedAt(data.updated_at ?? new Date().toISOString())
+    setPromptSource("default")
+    setMode("view")
+    setResetOpen(false)
+
+    toast.success("Restored the default Travers prompt.")
   }
 
   return (
     <div className="flex flex-col gap-6">
       {/* Status bar */}
-      {updatedAt && (
-        <p className="text-xs text-muted-foreground">
-          Last saved: {new Date(updatedAt).toLocaleString()}
-        </p>
-      )}
-
-      {/* Notifications */}
-      {successMsg && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {successMsg}
-        </div>
-      )}
-      {error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      {/* Upload section */}
-      <div className="rounded-xl border border-border/60 bg-background p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-sm font-medium">Upload Travers Document</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Upload the Travers Master Data File (.docx or .pdf). The AI will
-              extract and reformat it into clean structured markdown, preserving
-              all §-numbered sections.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={formatting}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-foreground px-3.5 py-2 text-sm font-medium text-background transition-opacity hover:opacity-80 disabled:opacity-50"
-          >
-            {formatting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Formatting…
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4" />
-                Upload & Format
-              </>
-            )}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx"
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-        </div>
-
-        {uploadedFile && !formatting && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <FileText className="h-3.5 w-3.5" />
-            {uploadedFile}
-            {mode === "preview" && (
-              <span className="text-emerald-500">
-                — formatted preview ready
-              </span>
-            )}
-          </div>
-        )}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {promptSource === "default" ? (
+          <span className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5">
+            Using default Travers prompt
+          </span>
+        ) : null}
+        {updatedAt ? (
+          <span>Last saved: {new Date(updatedAt).toLocaleString()}</span>
+        ) : null}
       </div>
 
       {/* Prompt editor / viewer */}
@@ -187,16 +127,25 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
           </h2>
           <div className="flex items-center gap-2">
             {mode === "view" && currentPrompt && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditValue(currentPrompt)
-                  setMode("edit")
-                }}
-                className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-              >
-                Edit manually
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditValue(currentPrompt)
+                    setMode("edit")
+                  }}
+                  className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  Edit manually
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResetOpen(true)}
+                  className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  Reset to default
+                </button>
+              </>
             )}
             {(mode === "edit" || mode === "preview") && (
               <button
@@ -218,8 +167,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
           ) : (
             <div className="rounded-lg border border-dashed border-border/60 px-4 py-12 text-center">
               <p className="text-sm text-muted-foreground">
-                No Travers prompt configured yet. Upload a file above to get
-                started.
+                No Travers prompt available.
               </p>
             </div>
           )
@@ -272,6 +220,32 @@ export function AcaManager({ initialPrompt, initialUpdatedAt }: Props) {
           </div>
         )}
       </div>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Reset Travers prompt to default?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will restore the canonical ACA master prompt extracted from
+              the DOCX master file.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={() => {
+                void handleResetToDefault()
+              }}
+              className="bg-foreground text-background hover:opacity-85"
+            >
+              {saving ? "Resetting..." : "Confirm reset"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

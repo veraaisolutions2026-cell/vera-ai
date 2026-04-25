@@ -14,6 +14,8 @@ import {
   extractTextFromMessageParts,
   type ChatAttachment,
 } from "@/lib/chat-attachments"
+import { getAgent } from "@/lib/db/agents"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { getUsageAvailability } from "@/lib/db/usage-limits"
 
 export async function startChat(
@@ -49,10 +51,33 @@ export async function startChat(
   const content = extractTextFromMessageParts(parts)
   if (!content) return { error: "empty_message" }
 
+  let resolvedAgentId: string | undefined
+
+  if (agentId) {
+    const [layerAccess, agent] = await Promise.all([
+      getUserLayerAccess(userId),
+      getAgent(agentId),
+    ])
+
+    if (!agent || (!agent.is_builtin && agent.user_id !== userId)) {
+      return { error: "invalid_agent" }
+    }
+
+    const canUseAgent = agent.is_builtin
+      ? layerAccess.allowBuiltInAgents
+      : layerAccess.allowCustomAgentCrud
+
+    if (!canUseAgent) {
+      return { error: "agent_not_allowed" }
+    }
+
+    resolvedAgentId = agent.id
+  }
+
   const chat = await createChat(
     userId,
     model ?? "claude-sonnet-4-6",
-    agentId || undefined
+    resolvedAgentId
   )
 
   if (!chat) return { error: "chat_create_failed" }

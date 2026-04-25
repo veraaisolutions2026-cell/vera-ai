@@ -8,6 +8,8 @@ export type Profile = Omit<Tables<"profiles">, "role"> & {
 }
 
 export type Agent = Tables<"agents">
+export type KnowledgeBaseFile = Tables<"knowledge_base_files">
+export type AgentKnowledgeBaseFile = Tables<"agent_knowledge_base_files">
 
 export type Chat = Tables<"chats">
 

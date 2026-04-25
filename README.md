@@ -84,6 +84,10 @@ pnpm build
 - `pnpm typecheck` - TypeScript check without emit
 - `pnpm format` - Prettier for `ts/tsx`
 - `pnpm update-types` - regenerate Supabase types into `types/supabase.ts` using the pinned Supabase CLI version
+- `pnpm db:apply <file>` - apply a local SQL file to linked Supabase project (`supabase db query --linked`)
+- `pnpm db:apply:billing-plan-v2` - apply `db/billing-plan-v2.sql`
+- `pnpm db:apply:knowledge-base-phase2` - apply `db/knowledge-base-phase2.sql`
+- `pnpm db:apply-and-types <file>` - apply local SQL then regenerate `types/supabase.ts`
 
 ## 4. Project Structure
 
@@ -206,6 +210,35 @@ Usage tracking notes:
 - Durable request usage should come from `usage_events` (append-only ledger).
 - `chat_turn_pairs` remains a safe fallback source for historical completed chat turns.
 - Apply `sql/usage-tracking-setup.sql` in Supabase before relying on request-based usage analytics in production.
+
+## 9.1 Migration Runbook (Linked Supabase)
+
+This repository uses SQL files under `db/` as the source of truth for schema/data migrations applied during development.
+
+Standard workflow:
+
+```bash
+# 1) Apply a SQL artifact to the linked project
+pnpm db:apply db/knowledge-base-phase2.sql
+
+# 2) Regenerate Supabase types after schema changes
+pnpm update-types
+
+# 3) Validate app state
+pnpm typecheck && pnpm lint
+```
+
+One-command variant (apply + type refresh):
+
+```bash
+pnpm db:apply-and-types db/billing-plan-v2.sql
+```
+
+Notes:
+
+- You must have Supabase CLI authenticated and project linked before running migration scripts.
+- `db:apply` reads SQL file content and pipes it into `supabase db query --linked`.
+- Keep SQL artifacts idempotent where possible so reruns are safe.
 
 ## 10. Model Configuration
 

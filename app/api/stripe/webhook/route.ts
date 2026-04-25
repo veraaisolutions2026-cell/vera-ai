@@ -33,7 +33,9 @@ export async function POST(req: Request) {
       await upsertSubscription(userId, {
         stripe_customer_id: session.customer as string,
         stripe_subscription_id: session.subscription as string,
-        plan: (session.metadata?.plan ?? "pro") as "pro" | "enterprise",
+        plan: (session.metadata?.plan ?? "vera-coach") as
+          | "vera-coach"
+          | "vera-intelligence",
         billing_interval: (session.metadata?.interval ?? "monthly") as
           | "monthly"
           | "annual",
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
 
       const status = sub.status
       const plan =
-        status === "canceled" || status === "unpaid" ? "free" : undefined
+        status === "canceled" || status === "unpaid" ? "vera-coach" : undefined
 
       await upsertSubscription(data.user_id, {
         stripe_subscription_id: sub.id,

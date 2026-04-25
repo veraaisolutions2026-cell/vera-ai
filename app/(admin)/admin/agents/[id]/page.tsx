@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { getAgent } from "@/lib/db/agents"
+import { getBuiltinAgentLayers } from "@/lib/db/builtin-agent-layer-access"
 import { AgentForm } from "../components/agent-form"
 
 export default async function EditAgentPage({
@@ -8,7 +9,10 @@ export default async function EditAgentPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const agent = await getAgent(id)
+  const [agent, layers] = await Promise.all([
+    getAgent(id),
+    getBuiltinAgentLayers(id),
+  ])
 
   if (!agent) notFound()
 
@@ -19,10 +23,10 @@ export default async function EditAgentPage({
           Edit built-in agent
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Update system agent details and prompt available platform-wide.
+          Update system agent details, prompt, and layer access.
         </p>
       </div>
-      <AgentForm mode="edit" agent={agent} />
+      <AgentForm mode="edit" agent={agent} initialLayers={layers} />
     </div>
   )
 }

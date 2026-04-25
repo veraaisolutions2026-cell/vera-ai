@@ -1,4 +1,5 @@
 import { getBillingPlan, type PlanId } from "@/lib/billing-plans"
+import { isAdminUnlimitedModeEnabled } from "@/lib/db/admin-unlimited-mode"
 import { createServiceClient } from "@/lib/supabase/service"
 
 type SubscriptionStatus = {
@@ -11,6 +12,7 @@ export type UsageAvailability = {
   plan: PlanId
   status: string
   billingInterval: string | null
+  isAdminUnlimitedMode: boolean
   monthlyRequestLimit: number | null
   monthRequests: number
   remainingRequests: number | null
@@ -82,14 +84,16 @@ export async function getUsageAvailability(
 
   const monthStartIso = getMonthStartIso(new Date())
 
-  const [subscriptionResult, monthRequests] = await Promise.all([
-    service
-      .from("subscriptions")
-      .select("plan, status, billing_interval")
-      .eq("user_id", userId)
-      .maybeSingle<SubscriptionStatus>(),
-    getMonthRequestCount(userId, monthStartIso),
-  ])
+  const [subscriptionResult, monthRequests, isAdminUnlimited] =
+    await Promise.all([
+      service
+        .from("subscriptions")
+        .select("plan, status, billing_interval")
+        .eq("user_id", userId)
+        .maybeSingle<SubscriptionStatus>(),
+      getMonthRequestCount(userId, monthStartIso),
+      isAdminUnlimitedModeEnabled(userId),
+    ])
 
   const plan = getBillingPlan(subscriptionResult.data?.plan).id
   const status = subscriptionResult.data?.status ?? "active"
@@ -101,8 +105,10 @@ export async function getUsageAvailability(
     .maybeSingle<{ monthly_request_limit: number | null }>()
 
   const fallbackLimit = getBillingPlan(plan).approximateMonthlyRequests
-  const monthlyRequestLimit =
+  const configuredMonthlyLimit =
     tierResult.data?.monthly_request_limit ?? fallbackLimit
+
+  const monthlyRequestLimit = isAdminUnlimited ? null : configuredMonthlyLimit
 
   const remainingRequests =
     monthlyRequestLimit === null
@@ -113,6 +119,7 @@ export async function getUsageAvailability(
     plan,
     status,
     billingInterval: subscriptionResult.data?.billing_interval ?? null,
+    isAdminUnlimitedMode: isAdminUnlimited,
     monthlyRequestLimit,
     monthRequests,
     remainingRequests,

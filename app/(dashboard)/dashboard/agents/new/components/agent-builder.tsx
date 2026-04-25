@@ -12,6 +12,8 @@ import {
   ArrowRight,
   Bot,
   Brain,
+  Check,
+  ChevronDown,
   ChevronRight,
   Loader2,
   PenLine,
@@ -22,6 +24,7 @@ import { toast } from "sonner"
 import { createUserAgent } from "@/actions/agent-actions"
 import { AgentIconPicker } from "@/components/agent-icon-picker"
 import { Loader } from "@/components/ai/loader"
+import { AgentKnowledgeBaseManager } from "@/components/agent-knowledge-base-manager"
 import { AGENT_ICONS } from "@/lib/agent-icons"
 import { TextEffect } from "@/components/ui/text-effect"
 import {
@@ -38,6 +41,11 @@ import {
   type TaskStatus,
 } from "@/components/animate-ui/components/task"
 import { cn } from "@/lib/utils"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/animate-ui/components/radix/popover"
 
 /* ── Animation helpers (mirrors chat-message.tsx) ─────────────── */
 
@@ -369,6 +377,73 @@ function getModelLabel(model?: string): string {
   return "Claude Sonnet"
 }
 
+const BASE_MODEL_OPTIONS = [
+  {
+    value: "claude-sonnet-4-6",
+    label: "Claude Sonnet — Balanced",
+  },
+  {
+    value: "claude-haiku-4-5-20251001",
+    label: "Claude Haiku — Fast",
+  },
+  {
+    value: "claude-opus-4-6",
+    label: "Claude Opus — Powerful",
+  },
+] as const
+
+function BaseModelPicker({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (nextModel: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected =
+    BASE_MODEL_OPTIONS.find((option) => option.value === value) ??
+    BASE_MODEL_OPTIONS[0]
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-9 w-full items-center justify-between rounded-lg border border-border/60 bg-background px-3 text-sm transition-colors outline-none hover:bg-accent focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
+        >
+          <span>{selected.label}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="w-(--radix-popover-trigger-width) p-1"
+      >
+        {BASE_MODEL_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => {
+              onChange(option.value)
+              setOpen(false)
+            }}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent"
+          >
+            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+            <Check
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 text-muted-foreground",
+                value === option.value ? "opacity-100" : "opacity-0"
+              )}
+            />
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 /* ── Single Travers message ─────────────────────────────────────── */
 
 function AcaMessage({
@@ -663,7 +738,6 @@ export function AgentBuilder() {
   const [baseModel, setBaseModel] = useState("claude-sonnet-4-6")
   const [category, setCategory] = useState("")
   const [saving, setSaving] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
   const [isRouteLoading, setIsRouteLoading] = useState(false)
 
@@ -741,26 +815,34 @@ export function AgentBuilder() {
 
   async function handleSave() {
     if (!name.trim()) {
-      setFormError("Name is required.")
+      toast.error("Name is required.")
+      return
+    }
+    if (!description.trim()) {
+      toast.error("Description is required.")
+      return
+    }
+    if (!category.trim()) {
+      toast.error("Category is required.")
       return
     }
     if (!systemPrompt.trim()) {
-      setFormError("System prompt is required.")
+      toast.error("System prompt is required.")
       return
     }
     setSaving(true)
-    setFormError(null)
+
     const result = await createUserAgent({
       name: name.trim(),
       icon,
-      description: description.trim() || null,
+      description: description.trim(),
       system_prompt: systemPrompt.trim(),
       base_model: baseModel,
-      category: category.trim() || null,
+      category: category.trim(),
     })
     setSaving(false)
     if ("error" in result) {
-      setFormError(result.error)
+      toast.error(result.error)
       return
     }
     toast.success("Agent created successfully!")
@@ -809,7 +891,13 @@ export function AgentBuilder() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving || !name.trim() || !systemPrompt.trim()}
+              disabled={
+                saving ||
+                !name.trim() ||
+                !description.trim() ||
+                !category.trim() ||
+                !systemPrompt.trim()
+              }
               className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition-opacity hover:opacity-80 disabled:opacity-40 sm:flex-none"
             >
               {saving ? (
@@ -827,12 +915,6 @@ export function AgentBuilder() {
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row lg:divide-x lg:divide-border/50">
         {/* ── Left: form ── */}
         <div className="flex w-full shrink-0 flex-col gap-5 overflow-y-auto px-4 py-5 sm:px-6 lg:w-105 lg:py-6">
-          {formError && (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5 text-xs text-destructive">
-              {formError}
-            </p>
-          )}
-
           {/* Name */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -869,6 +951,7 @@ export function AgentBuilder() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Short description shown in agent selector"
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
+              required
             />
           </div>
 
@@ -883,6 +966,7 @@ export function AgentBuilder() {
               onChange={(e) => setCategory(e.target.value)}
               placeholder="e.g. Audit, Tax, Compliance"
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
+              required
             />
           </div>
 
@@ -891,19 +975,7 @@ export function AgentBuilder() {
             <label className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Base Model
             </label>
-            <select
-              value={baseModel}
-              onChange={(e) => setBaseModel(e.target.value)}
-              className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
-            >
-              <option value="claude-sonnet-4-6">
-                Claude Sonnet — Balanced
-              </option>
-              <option value="claude-haiku-4-5-20251001">
-                Claude Haiku — Fast
-              </option>
-              <option value="claude-opus-4-6">Claude Opus — Powerful</option>
-            </select>
+            <BaseModelPicker value={baseModel} onChange={setBaseModel} />
           </div>
 
           {/* System Prompt */}
@@ -919,6 +991,8 @@ export function AgentBuilder() {
               className="resize-y rounded-lg border border-border/60 bg-background px-3 py-2.5 font-mono text-xs leading-relaxed transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
             />
           </div>
+
+          <AgentKnowledgeBaseManager agentId={createdAgentId} />
         </div>
 
         {/* ── Right: Travers chat ── */}

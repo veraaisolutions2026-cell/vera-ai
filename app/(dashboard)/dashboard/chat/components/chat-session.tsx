@@ -7,7 +7,11 @@ import { DefaultChatTransport, type UIMessage } from "ai"
 import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
-import { ChatComposer, type AttachedFile } from "./chat-composer"
+import {
+  ChatComposer,
+  type AnswerPreference,
+  type AttachedFile,
+} from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
 import {
   ATTACHMENT_THINKING_PHRASES,
@@ -16,12 +20,15 @@ import {
   ThinkingIndicator,
 } from "./chat-message"
 import { ChatHeader } from "./chat-header"
+import type { PlanId } from "@/lib/billing-plans"
 import { supportsReasoningForModel } from "@/lib/models"
 import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
 import type { Agent } from "@/types/database"
 import {
   buildAttachmentFileParts,
   extractAttachmentsFromMessageParts,
+  getVeraAttachmentMetadata,
+  type PersistedFilePart,
 } from "@/lib/chat-attachments"
 
 type Props = {
@@ -36,6 +43,7 @@ type Props = {
    *  so the AI SDK assigns a fresh ID and the welcome→chat transition plays. */
   pendingFirstMessage?: string
   selectedAgent: Agent | null
+  initialAnswerPreference?: AnswerPreference | null
 }
 
 const SUBHEADINGS = [
@@ -401,6 +409,7 @@ export function ChatSession({
   initialMessages,
   pendingFirstMessage,
   selectedAgent,
+  initialAnswerPreference = null,
 }: Props) {
   // [x] STABLE BASELINE (DO NOT CHANGE WITHOUT DOUBLE CONFIRMATION)
   // This component contains hardening for no-refresh reliability and race-safe
@@ -413,8 +422,25 @@ export function ChatSession({
     "file-text": FileText,
   }
   const [input, setInput] = useState("")
+  const [activeAgent, setActiveAgent] = useState<Agent | null>(selectedAgent)
+  const [answerPreference, setAnswerPreference] =
+    useState<AnswerPreference | null>(initialAnswerPreference)
   const [isSubmitPending, setIsSubmitPending] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
+  const [pendingAnswerChoice, setPendingAnswerChoice] = useState<{
+    text: string
+    files: AttachedFile[]
+    mode: "queued-message" | "resume-existing-turn"
+  } | null>(() => {
+    if (!pendingFirstMessage || activeAgent || initialAnswerPreference) {
+      return null
+    }
+
+    return { text: pendingFirstMessage, files: [], mode: "queued-message" }
+  })
+  const [hasEnteredMainFlow, setHasEnteredMainFlow] = useState(() =>
+    Boolean(pendingFirstMessage || initialMessages.length > 0)
+  )
   const [showDeadStateFallback, setShowDeadStateFallback] = useState(false)
   const [userBranchMap, setUserBranchMap] = useState<
     Record<string, UserBranchState>
@@ -433,9 +459,16 @@ export function ChatSession({
   const bootstrapWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
+  const answerChoiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+  const clearAnswerPreferenceAfterSendRef = useRef(false)
   const seenMessageIdsRef = useRef<Set<string>>(new Set())
   const seenMessageIdsInitializedRef = useRef(false)
   const branchStorageHydratedRef = useRef(false)
+  const latestAnswerPreferenceRef = useRef<AnswerPreference | null>(
+    initialAnswerPreference
+  )
 
   if (!seenMessageIdsInitializedRef.current) {
     const seen = new Set<string>()
@@ -446,12 +479,49 @@ export function ChatSession({
     seenMessageIdsInitializedRef.current = true
   }
 
+  useEffect(() => {
+    latestAnswerPreferenceRef.current = answerPreference
+  }, [answerPreference])
+
+  useEffect(() => {
+    if (activeAgent && pendingAnswerChoice) {
+      setPendingAnswerChoice(null)
+    }
+  }, [activeAgent, pendingAnswerChoice])
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: `/api/chat/${chatId}`,
         fetch: async (input, init) => {
-          const response = await fetch(input, init)
+          let requestInit = init
+
+          if (init?.body && typeof init.body === "string") {
+            try {
+              const parsed = JSON.parse(init.body) as {
+                answerPreference?: unknown
+                selectedAgentId?: unknown
+              }
+
+              const preference = latestAnswerPreferenceRef.current
+              requestInit = {
+                ...init,
+                body: JSON.stringify({
+                  ...parsed,
+                  selectedAgentId: activeAgent?.id ?? null,
+                  answerPreference:
+                    !activeAgent &&
+                    (preference === "short" || preference === "long")
+                      ? preference
+                      : undefined,
+                }),
+              }
+            } catch {
+              // Keep original body if parsing fails.
+            }
+          }
+
+          const response = await fetch(input, requestInit)
           latestTurnStateRef.current = response.headers.get("x-vera-turn-state")
 
           if (response.status === 402) {
@@ -462,7 +532,7 @@ export function ChatSession({
           return response
         },
       }),
-    [chatId]
+    [activeAgent, chatId]
   )
 
   const { messages, sendMessage, status, stop, regenerate, setMessages } =
@@ -595,14 +665,23 @@ export function ChatSession({
   // reactStrictMode is false so this fires exactly once — no guards needed.
   useEffect(() => {
     // ── Case A: brand-new chat from the welcome screen ──────────────────────
-    // pendingFirstMessage is set; initialMessages is empty. We use
-    // sendMessage({ text }) so the AI SDK assigns a fresh random ID, pushes
-    // the user message into state (triggering isWelcome → false and the
-    // welcome→chat transition animation), and drives the full normal flow.
-    // This avoids every timing issue that sendMessage(null) creates when the
-    // messages array already contains a DB-persisted user message.
+    // pendingFirstMessage is set; initialMessages is empty. For no-agent chats
+    // without a chosen answer preference, hold the first request and ask for
+    // the preference only after the routed chat session is on screen.
     if (pendingFirstMessage) {
+      if (!selectedAgent && !initialAnswerPreference) {
+        setPendingAnswerChoice({
+          text: pendingFirstMessage,
+          files: [],
+          mode: "queued-message",
+        })
+        return
+      }
+
       latestTurnStateRef.current = null
+      clearAnswerPreferenceAfterSendRef.current = Boolean(
+        initialAnswerPreference
+      )
 
       void sendMessage({ text: pendingFirstMessage }).catch((error) => {
         if (isOutOfUsageError(error)) {
@@ -627,6 +706,39 @@ export function ChatSession({
     if (hasAssistant) return
     const last = initialMessages[initialMessages.length - 1]
     if (!last || last.role !== "user") return
+
+    // For no-agent chats, preserve the same short/long preference gate even
+    // when the first unresolved turn includes uploaded attachments.
+    if (!selectedAgent && !initialAnswerPreference) {
+      const pendingFiles: AttachedFile[] = last.parts.flatMap((part) => {
+        if (part.type !== "file") return []
+
+        const metadata = getVeraAttachmentMetadata(part as PersistedFilePart)
+        if (!metadata) return []
+
+        return [
+          {
+            type: metadata.attachmentType,
+            name: part.filename ?? "attachment",
+            mimeType: part.mediaType,
+            size: metadata.size,
+            storagePath: metadata.storagePath,
+            signedUrl: part.url,
+            text:
+              metadata.attachmentType === "docx"
+                ? (metadata.extractedText ?? undefined)
+                : undefined,
+          },
+        ]
+      })
+
+      setPendingAnswerChoice({
+        text: getTextFromParts(last.parts),
+        files: pendingFiles,
+        mode: "resume-existing-turn",
+      })
+      return
+    }
 
     const attemptKey = `${chatId}:${last.id}`
     const attempts = bootstrapAttemptRef.current[attemptKey] ?? 0
@@ -700,6 +812,17 @@ export function ChatSession({
         reasoningContent: getReasoningFromParts(message.parts),
       }))
   }, [messages])
+
+  useEffect(() => {
+    if (
+      pendingAnswerChoice ||
+      isSubmitPending ||
+      isStreaming ||
+      flatMessages.length > 0
+    ) {
+      setHasEnteredMainFlow(true)
+    }
+  }, [flatMessages.length, isStreaming, isSubmitPending, pendingAnswerChoice])
 
   const assistantContentByUserMessageId = useMemo(() => {
     const map = new Map<string, string>()
@@ -827,32 +950,53 @@ export function ChatSession({
   }, [flatMessages, hideDeadState, isStreaming])
 
   const isWelcome = flatMessages.length === 0
+  const showWelcomeLayout = isWelcome && !hasEnteredMainFlow
   const firstName = userName.split(" ")[0] || "User"
   const reasoningEnabled = useMemo(
     () => supportsReasoningForModel(lockedModel),
     [lockedModel]
   )
 
+  const usagePlanRef = useRef<PlanId>("vera-coach")
+
   const showOutOfUsageToast = useCallback(() => {
     showUsageUpsellToast({
+      reason: "usage-exhausted",
+      plan: usagePlanRef.current,
       onUpgrade: () => router.push("/dashboard/billing"),
     })
   }, [router])
 
-  const hasUsageAvailable = useCallback(async () => {
+  const getUsageAvailability = useCallback(async () => {
     try {
       const response = await fetch("/api/usage/availability", {
         method: "GET",
         cache: "no-store",
       })
 
-      if (!response.ok) return true
+      if (!response.ok) {
+        return {
+          isAvailable: true,
+          plan: usagePlanRef.current,
+        }
+      }
 
-      const payload = (await response.json()) as { isAvailable?: boolean }
-      return payload.isAvailable !== false
+      const payload = (await response.json()) as {
+        isAvailable?: boolean
+        plan?: PlanId
+      }
+      usagePlanRef.current = payload.plan ?? usagePlanRef.current
+
+      return {
+        isAvailable: payload.isAvailable !== false,
+        plan: usagePlanRef.current,
+      }
     } catch {
       // Do not block sending if the usage-check endpoint is temporarily unreachable.
-      return true
+      return {
+        isAvailable: true,
+        plan: usagePlanRef.current,
+      }
     }
   }, [])
 
@@ -870,6 +1014,9 @@ export function ChatSession({
 
   useEffect(() => {
     return () => {
+      if (answerChoiceTimerRef.current) {
+        clearTimeout(answerChoiceTimerRef.current)
+      }
       if (bootstrapWatchdogRef.current) {
         clearTimeout(bootstrapWatchdogRef.current)
       }
@@ -901,20 +1048,48 @@ export function ChatSession({
   }
 
   const send = useCallback(
-    async (overrideText?: string) => {
-      const text = (overrideText ?? input).trim()
+    async (overrideText?: string, overridePreference?: AnswerPreference) => {
+      const queuedRequest = pendingAnswerChoice
+      const files = queuedRequest?.files ?? attachedFiles
+      const text = (overrideText ?? queuedRequest?.text ?? input).trim()
+      const shouldResumeExistingTurn =
+        queuedRequest?.mode === "resume-existing-turn"
+      const effectivePreference = overridePreference ?? answerPreference
+
       if (
-        (text.length === 0 && attachedFiles.length === 0) ||
+        (text.length === 0 && files.length === 0) ||
         isStreaming ||
         isSubmitPending
       )
         return
 
+      if (!activeAgent && !effectivePreference) {
+        setPendingAnswerChoice({ text, files, mode: "queued-message" })
+        setIsSubmitPending(true)
+
+        if (answerChoiceTimerRef.current) {
+          clearTimeout(answerChoiceTimerRef.current)
+        }
+
+        answerChoiceTimerRef.current = setTimeout(() => {
+          setIsSubmitPending(false)
+        }, 240)
+        return
+      }
+
+      if (effectivePreference) {
+        setAnswerPreference(effectivePreference)
+        clearAnswerPreferenceAfterSendRef.current = true
+      }
+
+      setPendingAnswerChoice(null)
+
       // Show pending state immediately to avoid click-to-loader latency.
       setIsSubmitPending(true)
 
-      const usageAvailable = await hasUsageAvailable()
-      if (!usageAvailable) {
+      const usage = await getUsageAvailability()
+      if (!usage.isAvailable) {
+        usagePlanRef.current = usage.plan
         showOutOfUsageToast()
         setIsSubmitPending(false)
         return
@@ -924,14 +1099,17 @@ export function ChatSession({
       hideDeadState()
       setInput("")
 
-      const files = attachedFiles
       setAttachedFiles([])
 
       try {
-        await sendMessage({
-          text,
-          files: buildAttachmentFileParts(files),
-        })
+        if (shouldResumeExistingTurn) {
+          await sendMessage()
+        } else {
+          await sendMessage({
+            text,
+            files: buildAttachmentFileParts(files),
+          })
+        }
       } catch (error) {
         if (isOutOfUsageError(error)) {
           showOutOfUsageToast()
@@ -950,13 +1128,16 @@ export function ChatSession({
     },
     [
       input,
+      answerPreference,
       isStreaming,
       isSubmitPending,
       attachedFiles,
-      hasUsageAvailable,
+      pendingAnswerChoice,
+      getUsageAvailability,
       sendMessage,
       hideDeadState,
       isOutOfUsageError,
+      activeAgent,
       showOutOfUsageToast,
       showDeadState,
     ]
@@ -969,6 +1150,11 @@ export function ChatSession({
       status === "ready"
     ) {
       setIsSubmitPending(false)
+    }
+
+    if (status === "ready" && clearAnswerPreferenceAfterSendRef.current) {
+      clearAnswerPreferenceAfterSendRef.current = false
+      setAnswerPreference(null)
     }
   }, [status])
 
@@ -1204,17 +1390,20 @@ export function ChatSession({
             className="absolute inset-0 flex h-full w-full flex-col items-center justify-center pb-8"
             initial={false}
             animate={
-              isWelcome
+              showWelcomeLayout
                 ? { opacity: 1, y: 0, filter: "blur(0px)" }
                 : { opacity: 0, y: -8, filter: "blur(4px)" }
             }
             transition={{ duration: 0.22, ease: "easeInOut" }}
-            style={{ pointerEvents: isWelcome ? "auto" : "none" }}
+            style={{ pointerEvents: showWelcomeLayout ? "auto" : "none" }}
           >
             <div className="flex w-full flex-col items-center">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: isWelcome ? 1 : 0, y: isWelcome ? 0 : -6 }}
+                animate={{
+                  opacity: showWelcomeLayout ? 1 : 0,
+                  y: showWelcomeLayout ? 0 : -6,
+                }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 className="mb-1.5 px-4 text-center"
               >
@@ -1225,7 +1414,10 @@ export function ChatSession({
 
               <motion.p
                 initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: isWelcome ? 1 : 0, y: isWelcome ? 0 : -6 }}
+                animate={{
+                  opacity: showWelcomeLayout ? 1 : 0,
+                  y: showWelcomeLayout ? 0 : -6,
+                }}
                 transition={{ duration: 0.2, ease: "easeOut", delay: 0.03 }}
                 className="mb-16 px-4 text-sm text-muted-foreground sm:mb-28"
               >
@@ -1234,7 +1426,10 @@ export function ChatSession({
 
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: isWelcome ? 1 : 0, y: isWelcome ? 0 : -8 }}
+                animate={{
+                  opacity: showWelcomeLayout ? 1 : 0,
+                  y: showWelcomeLayout ? 0 : -8,
+                }}
                 transition={{ duration: 0.22, delay: 0.06 }}
                 className="mt-6 w-full max-w-3xl px-4 sm:mt-10"
               >
@@ -1275,12 +1470,12 @@ export function ChatSession({
             className="absolute inset-0 flex h-full flex-col"
             initial={false}
             animate={
-              isWelcome
+              showWelcomeLayout
                 ? { opacity: 0, y: 8, filter: "blur(4px)" }
                 : { opacity: 1, y: 0, filter: "blur(0px)" }
             }
             transition={{ duration: 0.24, ease: "easeOut" }}
-            style={{ pointerEvents: isWelcome ? "none" : "auto" }}
+            style={{ pointerEvents: showWelcomeLayout ? "none" : "auto" }}
           >
             <div className="flex h-full flex-col">
               <ChatHeader
@@ -1377,7 +1572,9 @@ export function ChatSession({
             key="composer-layer"
             className="pointer-events-none absolute inset-x-0 z-20"
             initial={false}
-            animate={isWelcome ? { bottom: "50%", y: 52 } : { bottom: 0, y: 0 }}
+            animate={
+              showWelcomeLayout ? { bottom: "50%", y: 52 } : { bottom: 0, y: 0 }
+            }
             transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
           >
             <motion.div
@@ -1385,7 +1582,7 @@ export function ChatSession({
               className="absolute inset-x-0 bottom-0 h-36"
               initial={false}
               animate={
-                isWelcome
+                showWelcomeLayout
                   ? { opacity: 0 }
                   : {
                       opacity: 1,
@@ -1403,10 +1600,25 @@ export function ChatSession({
                 isLoading={isStreaming || isSubmitPending}
                 onStop={isStreaming ? () => void stop() : undefined}
                 agents={agents}
-                selectedAgent={selectedAgent}
-                onAgentChange={() => {
-                  toast.info("Agent is locked for this chat session")
+                selectedAgent={activeAgent}
+                onAgentChange={(agent) => {
+                  setActiveAgent(agent)
+                  if (agent) {
+                    toast.success(`${agent.name} selected`)
+                    return
+                  }
+
+                  toast.info("No agent selected")
                 }}
+                showAnswerPreferencePrompt={Boolean(
+                  pendingAnswerChoice &&
+                  !isStreaming &&
+                  !isSubmitPending &&
+                  !activeAgent
+                )}
+                onAnswerPreferenceSelect={(preference) =>
+                  void send(undefined, preference)
+                }
                 model={lockedModel}
                 onModelChange={handleLockedModelChange}
                 attachedFiles={attachedFiles}

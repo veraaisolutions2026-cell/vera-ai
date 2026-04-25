@@ -1,10 +1,16 @@
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { getAllAgents } from "@/lib/db/admin"
-import { AgentsTable } from "./components/agents-table"
+import { getAdminAgentTabsState } from "@/lib/db/admin-agent-tabs"
+import { getBuiltinAgentLayerMap } from "@/lib/db/builtin-agent-layer-access"
+import { AdminAgentTabs } from "./components/admin-agent-tabs"
 
 export default async function AdminAgentsPage() {
-  const agents = await getAllAgents()
+  const [agents, layerMap, tabState] = await Promise.all([
+    getAllAgents(),
+    getBuiltinAgentLayerMap(),
+    getAdminAgentTabsState(),
+  ])
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -12,7 +18,7 @@ export default async function AdminAgentsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {agents.length} system agent{agents.length !== 1 ? "s" : ""} total
+            {agents.length} agent{agents.length !== 1 ? "s" : ""} total
           </p>
         </div>
         <Link
@@ -24,7 +30,12 @@ export default async function AdminAgentsPage() {
         </Link>
       </div>
 
-      <AgentsTable agents={agents} />
+      <AdminAgentTabs
+        agents={agents}
+        builtinLayerMap={layerMap}
+        customTabs={tabState.tabs}
+        tabAssignments={tabState.assignments}
+      />
     </div>
   )
 }

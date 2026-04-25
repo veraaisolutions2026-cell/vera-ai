@@ -1,8 +1,8 @@
-import { getSystemConfigWithMeta } from "@/lib/db/system-config"
+import { getResolvedAcaPrompt } from "@/lib/aca-prompt"
 import { AcaManager } from "./components/aca-manager"
 
 export default async function AcaAdminPage() {
-  const config = await getSystemConfigWithMeta("aca_master_prompt")
+  const config = await getResolvedAcaPrompt()
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -18,8 +18,9 @@ export default async function AcaAdminPage() {
       </div>
 
       <AcaManager
-        initialPrompt={config?.value ?? null}
-        initialUpdatedAt={config?.updated_at ?? null}
+        initialPrompt={config.value}
+        initialUpdatedAt={config.updatedAt}
+        source={config.source}
       />
     </div>
   )

@@ -3,9 +3,8 @@ import { createServiceClient } from "@/lib/supabase/service"
 import type { Agent, Profile } from "@/types/database"
 
 const BILLING_PRICE_USD = {
-  free: { monthly: 0, annual: 0 },
-  pro: { monthly: 49, annual: 39 },
-  enterprise: { monthly: 149, annual: 119 },
+  "vera-coach": { monthly: 49, annual: 39 },
+  "vera-intelligence": { monthly: 149, annual: 119 },
 } as const
 
 const CHURNED_STATUSES = new Set(["canceled", "incomplete_expired", "unpaid"])
@@ -39,7 +38,7 @@ function toMonthLabel(date: Date): string {
 }
 
 function getMonthlyEquivalent(plan: string, interval: string | null): number {
-  if (plan !== "pro" && plan !== "enterprise") {
+  if (plan !== "vera-coach" && plan !== "vera-intelligence") {
     return 0
   }
 
@@ -136,7 +135,6 @@ export async function getAllAgents(): Promise<Agent[]> {
   const { data, error } = await service
     .from("agents")
     .select("*")
-    .eq("is_builtin", true)
     .order("is_builtin", { ascending: false })
     .order("name")
 
@@ -267,9 +265,8 @@ export async function getSubscriptionInsights(
   let estimatedMrr = 0
 
   const planCounts: Record<string, number> = {
-    free: 0,
-    pro: 0,
-    enterprise: 0,
+    "vera-coach": 0,
+    "vera-intelligence": 0,
   }
 
   subscriptions?.forEach((sub) => {
@@ -312,13 +309,16 @@ export async function getSubscriptionInsights(
   }))
 
   const planBreakdown: SubscriptionPlanPoint[] = [
-    { plan: "Pro", count: planCounts.pro, fill: "var(--chart-1)" },
     {
-      plan: "Enterprise",
-      count: planCounts.enterprise,
+      plan: "Vera Coach",
+      count: planCounts["vera-coach"],
+      fill: "var(--chart-1)",
+    },
+    {
+      plan: "Vera Intelligence",
+      count: planCounts["vera-intelligence"],
       fill: "var(--chart-2)",
     },
-    { plan: "Free", count: planCounts.free, fill: "oklch(0.68 0.01 285)" },
   ]
 
   return {

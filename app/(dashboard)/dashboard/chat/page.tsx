@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getAllAgentsForUser } from "@/lib/db/agents"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { ChatNewPage } from "./components/chat-new-page"
 
 export default async function NewChatPage() {
@@ -13,13 +14,23 @@ export default async function NewChatPage() {
     redirect("/login")
   }
 
-  const [agents, profileResult] = await Promise.all([
-    getAllAgentsForUser(user.id),
+  const [profileResult, layerAccess] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    getUserLayerAccess(user.id),
   ])
+
+  const scopedAgents = await getAllAgentsForUser(user.id, layerAccess.layer)
+
+  const filteredAgents = scopedAgents.filter((agent) => {
+    if (agent.is_builtin) {
+      return layerAccess.allowBuiltInAgents
+    }
+
+    return layerAccess.allowCustomAgentCrud
+  })
 
   const userName =
     profileResult.data?.full_name ?? user.email?.split("@")[0] ?? "User"
 
-  return <ChatNewPage userName={userName} agents={agents} />
+  return <ChatNewPage userName={userName} agents={filteredAgents} />
 }

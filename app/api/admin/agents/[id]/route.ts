@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { adminDeleteAgent, adminUpdateAgent } from "@/lib/db/admin"
+import {
+  removeBuiltinAgentLayerMapping,
+  setBuiltinAgentLayers,
+} from "@/lib/db/builtin-agent-layer-access"
 import { z } from "zod"
+
+const layerSchema = z.enum(["coach", "intelligence"])
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -12,6 +18,7 @@ const updateSchema = z.object({
   category: z.string().nullable().optional(),
   is_builtin: z.boolean().optional(),
   user_id: z.string().nullable().optional(),
+  layer_access: z.array(layerSchema).min(1).optional(),
 })
 
 async function assertAdmin() {
@@ -49,8 +56,10 @@ export async function PATCH(
     )
   }
 
+  const { layer_access: layerAccess, ...agentPayload } = parsed.data
+
   const agent = await adminUpdateAgent(id, {
-    ...parsed.data,
+    ...agentPayload,
     is_builtin: true,
     user_id: null,
   })
@@ -59,6 +68,10 @@ export async function PATCH(
       { error: "Failed to update agent" },
       { status: 500 }
     )
+  }
+
+  if (layerAccess) {
+    await setBuiltinAgentLayers(id, layerAccess)
   }
 
   return NextResponse.json(agent)
@@ -81,6 +94,8 @@ export async function DELETE(
       { status: 500 }
     )
   }
+
+  await removeBuiltinAgentLayerMapping(id)
 
   return new NextResponse(null, { status: 204 })
 }

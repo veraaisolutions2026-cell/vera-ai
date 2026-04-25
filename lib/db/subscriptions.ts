@@ -5,7 +5,7 @@ export type Subscription = {
   user_id: string
   stripe_customer_id: string
   stripe_subscription_id: string | null
-  plan: "free" | "pro" | "enterprise"
+  plan: "vera-coach" | "vera-intelligence"
   billing_interval: "monthly" | "annual" | null
   status: string
   current_period_end: string | null

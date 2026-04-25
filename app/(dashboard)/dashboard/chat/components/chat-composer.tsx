@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { motion } from "motion/react"
-import { ArrowUp, FileText, Paperclip, Square, X } from "lucide-react"
+import { ArrowRight, FileText, Paperclip, Square, X } from "lucide-react"
 import { toast } from "sonner"
 import {
   Tooltip,
@@ -27,6 +27,7 @@ function formatSize(bytes: number): string {
 }
 
 export type AttachedFile = ChatAttachment
+export type AnswerPreference = "short" | "long"
 
 type Props = {
   input: string
@@ -37,6 +38,8 @@ type Props = {
   agents: Agent[]
   selectedAgent: Agent | null
   onAgentChange: (agent: Agent | null) => void
+  showAnswerPreferencePrompt?: boolean
+  onAnswerPreferenceSelect?: (answerPreference: AnswerPreference) => void
   model: ModelId
   onModelChange: (model: ModelId) => void
   disabled?: boolean
@@ -55,6 +58,8 @@ export function ChatComposer({
   agents,
   selectedAgent,
   onAgentChange,
+  showAnswerPreferencePrompt = false,
+  onAnswerPreferenceSelect,
   model,
   onModelChange,
   disabled,
@@ -72,6 +77,13 @@ export function ChatComposer({
 
   const effectiveUploading = isUploading || localUploading
   const hasAttachmentStack = effectiveUploading || attachedFiles.length > 0
+  const isChoiceMode = showAnswerPreferencePrompt && !selectedAgent
+  const isSendActive =
+    input.trim().length > 0 &&
+    !isLoading &&
+    !effectiveUploading &&
+    !isChoiceMode
+  const showLightLogoOnButton = isSendActive
 
   useEffect(() => {
     setIsClientReady(true)
@@ -85,17 +97,26 @@ export function ChatComposer({
     element.style.height = `${Math.min(element.scrollHeight, 200)}px`
   }, [input])
 
+  const canSubmit =
+    !isLoading &&
+    !effectiveUploading &&
+    !disabled &&
+    (input.trim().length > 0 || attachedFiles.length > 0)
+
+  function requestSubmit() {
+    if (!canSubmit || showAnswerPreferencePrompt) return
+    onSubmit()
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault()
+      // Ctrl/Cmd+Enter inserts a newline. Let the browser handle it.
+      return
+    }
 
-      if (
-        !isLoading &&
-        !effectiveUploading &&
-        (input.trim() || attachedFiles.length > 0)
-      ) {
-        onSubmit()
-      }
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      requestSubmit()
     }
   }
 
@@ -209,25 +230,92 @@ export function ChatComposer({
             </div>
           )}
 
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(event) => onInputChange(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything..."
-            disabled={disabled}
-            rows={1}
-            className={cn(
-              "w-full resize-none rounded-[1.75rem] bg-transparent mask-[linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] px-4 pb-18 text-sm leading-relaxed [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
-              hasAttachmentStack ? "pt-2.5" : "pt-3.5"
-            )}
-            style={{ minHeight: "52px", maxHeight: "200px" }}
-          />
+          {isChoiceMode ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.985 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="px-3 pt-3 pb-20"
+            >
+              <div className="rounded-[1.45rem] border border-border/70 bg-background/88 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md">
+                <div className="flex items-start justify-between gap-4 px-1 pb-3">
+                  <div>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground/80 uppercase">
+                      Before Vera answers
+                    </p>
+                    <h3 className="mt-1 text-sm font-medium tracking-normal text-foreground">
+                      How detailed should this reply be?
+                    </h3>
+                  </div>
+                  <span className="rounded-full border border-border/60 px-2.5 py-1 text-[10px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
+                    1 question
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => onAnswerPreferenceSelect?.("short")}
+                    className="group flex w-full items-center gap-3 rounded-[1.2rem] border border-border/65 bg-card/75 px-3 py-3.5 text-left transition-all duration-150 hover:border-foreground/20 hover:bg-card hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_12px_24px_rgba(0,0,0,0.22)]"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
+                      1
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-foreground">
+                        Short answer
+                      </span>
+                      <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
+                        Quick, direct, and focused on the main point.
+                      </span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onAnswerPreferenceSelect?.("long")}
+                    className="group flex w-full items-center gap-3 rounded-[1.2rem] border border-border/65 bg-card/75 px-3 py-3.5 text-left transition-all duration-150 hover:border-foreground/20 hover:bg-card hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_12px_24px_rgba(0,0,0,0.22)]"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
+                      2
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-foreground">
+                        Long answer
+                      </span>
+                      <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
+                        More context, fuller reasoning, and practical detail.
+                      </span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(event) => onInputChange(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask anything..."
+              disabled={disabled || showAnswerPreferencePrompt}
+              rows={1}
+              className={cn(
+                "w-full resize-none rounded-[1.75rem] bg-card/95 mask-[linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] px-4 pb-18 text-sm leading-relaxed [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
+                hasAttachmentStack ? "pt-2.5" : "pt-3.5"
+              )}
+              style={{ minHeight: "52px", maxHeight: "200px" }}
+            />
+          )}
 
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-2 bottom-0 h-24 rounded-b-[1.35rem] bg-linear-to-t from-card via-card/90 to-card/0"
           />
+
           <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-3 pb-3">
             <div className="flex w-full items-center justify-between rounded-[1.2rem] border border-border/60 bg-background/80 px-1.5 py-1.5 backdrop-blur-md">
               <div className="flex items-center gap-1">
@@ -247,6 +335,7 @@ export function ChatComposer({
                           onClick={() => fileInputRef.current?.click()}
                           disabled={
                             disabled ||
+                            showAnswerPreferencePrompt ||
                             effectiveUploading ||
                             attachedFiles.length >= 3
                           }
@@ -333,36 +422,64 @@ export function ChatComposer({
               ) : (
                 <button
                   type="button"
-                  onClick={onSubmit}
+                  onClick={requestSubmit}
                   disabled={
-                    (!input.trim() && attachedFiles.length === 0) ||
-                    disabled ||
-                    effectiveUploading ||
-                    (isLoading && !onStop)
+                    !canSubmit || isChoiceMode || (isLoading && !onStop)
                   }
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full transition-all",
-                    input.trim() && !isLoading && !effectiveUploading
-                      ? "bg-foreground text-background hover:opacity-80"
+                    "group flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150",
+                    isSendActive
+                      ? "bg-foreground text-background hover:scale-[1.04] hover:opacity-90"
                       : isLoading
                         ? "bg-foreground text-background opacity-80"
-                        : "bg-foreground/10 text-muted-foreground"
+                        : "border border-border/70 bg-muted/70 text-muted-foreground"
                   )}
                   aria-label={isLoading ? "Loading..." : "Send"}
                 >
                   {isLoading && !onStop ? (
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                   ) : (
-                    <ArrowUp className="h-4 w-4" />
+                    <>
+                      {/* Contrast-aware logo pairing: dark button gets light logo, light button gets dark logo. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={
+                          showLightLogoOnButton
+                            ? "/vera-white-short.png"
+                            : "/vera-black-short.png"
+                        }
+                        alt=""
+                        aria-hidden="true"
+                        loading="eager"
+                        width={18}
+                        height={18}
+                        className="block transition-transform duration-150 group-hover:scale-105 dark:hidden"
+                      />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={
+                          showLightLogoOnButton
+                            ? "/vera-black-short.png"
+                            : "/vera-white-short.png"
+                        }
+                        alt=""
+                        aria-hidden="true"
+                        loading="eager"
+                        width={18}
+                        height={18}
+                        className="hidden transition-transform duration-150 group-hover:scale-105 dark:block"
+                      />
+                    </>
                   )}
                 </button>
               )}
             </div>
           </div>
         </div>
+
         <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
-          Press Ctrl+Enter (Windows/Linux) or Cmd+Enter (Mac) to send. Press
-          Enter for a new line.
+          Press Enter to send. Press Ctrl+Enter (Windows/Linux) or Cmd+Enter
+          (Mac) for a new line.
         </p>
       </div>
     </div>

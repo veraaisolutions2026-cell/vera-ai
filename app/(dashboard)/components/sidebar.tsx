@@ -52,23 +52,32 @@ import { removeChatAction, renameChat } from "@/actions/chat-actions"
 import { Loader } from "@/components/ai/loader"
 import { useChatTitleState } from "@/hooks/use-chat-title-state"
 import { cn } from "@/lib/utils"
+import type { LayerAccess } from "@/lib/db/layer-access"
 import type { Chat, UserData } from "@/types/database"
 
 type Props = {
   user: UserData
   chats: Chat[]
+  layerAccess: LayerAccess
   onCollapse: () => void
   onExpand: () => void
   collapsed: boolean
 }
 
-const secondaryNav = [
-  { href: "/dashboard/chat/manage", label: "Manage Chats", icon: FolderOpen },
-  { href: "/dashboard/agents", label: "Agents", icon: Bot },
-  { href: "/dashboard/usage", label: "Usage", icon: FolderOpen },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
-  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-]
+function getSecondaryNav(layerAccess: LayerAccess) {
+  return [
+    { href: "/dashboard/chat/manage", label: "Manage Chats", icon: FolderOpen },
+    ...(layerAccess.allowBuiltInAgents || layerAccess.allowCustomAgentCrud
+      ? [{ href: "/dashboard/agents", label: "Agents", icon: Bot }]
+      : []),
+    ...(layerAccess.allowKnowledgeBaseManagement
+      ? [{ href: "/dashboard/my-files", label: "My Files", icon: FolderOpen }]
+      : []),
+    { href: "/dashboard/usage", label: "Usage", icon: FolderOpen },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
+  ]
+}
 
 function SignOutMenuButton() {
   const { pending } = useFormStatus()
@@ -279,6 +288,7 @@ function ChatItem({ chat, isActive }: { chat: Chat; isActive: boolean }) {
 export function Sidebar({
   user,
   chats,
+  layerAccess,
   onCollapse,
   onExpand,
   collapsed,
@@ -286,6 +296,7 @@ export function Sidebar({
   const pathname = usePathname()
   const { resolvedTheme, setTheme } = useTheme()
   const groups = groupChatsByDate(chats)
+  const secondaryNav = getSecondaryNav(layerAccess)
 
   const initials = user.name
     .split(" ")

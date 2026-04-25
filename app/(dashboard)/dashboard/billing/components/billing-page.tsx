@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
-import { Check, Loader2, Zap, Building2, Sparkles } from "lucide-react"
+import { Check, Loader2, Zap, Building2 } from "lucide-react"
 import { toast } from "sonner"
 import { BILLING_PLAN_LIST, type PlanId } from "@/lib/billing-plans"
 import { cn } from "@/lib/utils"
@@ -11,15 +11,15 @@ import type { Subscription } from "@/lib/db/subscriptions"
 
 type Props = {
   subscription: Subscription | null
+  isAdminUnlimitedMode: boolean
 }
 
 const PLAN_ICONS = {
-  free: Sparkles,
-  pro: Zap,
-  enterprise: Building2,
+  "vera-coach": Zap,
+  "vera-intelligence": Building2,
 } as const
 
-export function BillingPage({ subscription }: Props) {
+export function BillingPage({ subscription, isAdminUnlimitedMode }: Props) {
   const [interval, setInterval] = useState<"monthly" | "annual">("monthly")
   const [loading, setLoading] = useState<string | null>(null)
   const searchParams = useSearchParams()
@@ -34,10 +34,9 @@ export function BillingPage({ subscription }: Props) {
     }
   }, [searchParams])
 
-  const currentPlan = (subscription?.plan ?? "free") as PlanId
+  const currentPlan = (subscription?.plan ?? "vera-coach") as PlanId
 
   async function handleUpgrade(planId: PlanId) {
-    if (planId === "free") return
     setLoading(planId)
     try {
       const res = await fetch("/api/stripe/create-checkout", {
@@ -104,7 +103,7 @@ export function BillingPage({ subscription }: Props) {
       </div>
 
       {/* Plan cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         {BILLING_PLAN_LIST.map((plan) => {
           const isCurrent = currentPlan === plan.id
           const price = plan.price[interval]
@@ -143,7 +142,7 @@ export function BillingPage({ subscription }: Props) {
                 <span className="text-sm font-semibold">{plan.name}</span>
                 {isCurrent && (
                   <span className="ml-auto rounded-full bg-foreground/10 px-2 py-0.5 text-[10px] font-medium text-foreground/70 ring-1 ring-foreground/10">
-                    Active
+                    {isAdminUnlimitedMode ? "Unlimited" : "Active"}
                   </span>
                 )}
               </div>
@@ -209,9 +208,7 @@ export function BillingPage({ subscription }: Props) {
               <button
                 type="button"
                 onClick={() => handleUpgrade(plan.id)}
-                disabled={
-                  isCurrent || plan.id === "free" || loading === plan.id
-                }
+                disabled={isCurrent || loading === plan.id}
                 className={cn(
                   "flex h-9 w-full items-center justify-center gap-2 rounded-full text-xs font-medium transition-all",
                   isCurrent
@@ -226,10 +223,10 @@ export function BillingPage({ subscription }: Props) {
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 )}
                 {isCurrent
-                  ? "Current plan"
-                  : plan.id === "free"
-                    ? "Downgrade"
-                    : `Upgrade to ${plan.name}`}
+                  ? isAdminUnlimitedMode
+                    ? "Unlimited enabled"
+                    : "Current plan"
+                  : `Upgrade to ${plan.name}`}
               </button>
             </div>
           )

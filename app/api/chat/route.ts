@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { createClient } from "@/lib/supabase/server"
 import { getAllAgentsForUser } from "@/lib/db/agents"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { resolveModelId } from "@/lib/models"
 
 const anthropic = new Anthropic({
@@ -15,7 +16,7 @@ type ChatMessage = {
 }
 
 const NO_EMOJI_SYSTEM_PROMPT =
-  "You are Vera, an AI assistant for auditors and professional services teams. Keep all responses precise and professional. Do not use emoji characters unless explicitly requested by the user."
+  "You are Vera, an AI assistant for auditors and professional services teams. Keep all responses precise and professional. Do not use emoji characters unless explicitly requested by the user. Do not use em dashes (\u2014) or en dashes (\u2013); use a comma, colon, or rewrite the sentence instead."
 
 export async function GET() {
   const supabase = await createClient()
@@ -27,10 +28,12 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const [agents, profileResult] = await Promise.all([
-    getAllAgentsForUser(user.id),
+  const [profileResult, layerAccess] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    getUserLayerAccess(user.id),
   ])
+
+  const agents = await getAllAgentsForUser(user.id, layerAccess.layer)
 
   const fullName =
     profileResult.data?.full_name ?? user.email?.split("@")[0] ?? "User"

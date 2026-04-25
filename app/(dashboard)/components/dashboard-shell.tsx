@@ -6,16 +6,18 @@ import { AnimatePresence, motion } from "motion/react"
 import { NavigationLoader } from "@/components/navigation-loader"
 import { RouteTransition } from "@/components/route-transition"
 import { cn } from "@/lib/utils"
+import type { LayerAccess } from "@/lib/db/layer-access"
 import { Sidebar } from "./sidebar"
 import type { Chat, UserData } from "@/types/database"
 
 type Props = {
   user: UserData
   chats: Chat[]
+  layerAccess: LayerAccess
   children: React.ReactNode
 }
 
-export function DashboardShell({ user, chats, children }: Props) {
+export function DashboardShell({ user, chats, layerAccess, children }: Props) {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
@@ -58,6 +60,7 @@ export function DashboardShell({ user, chats, children }: Props) {
         <Sidebar
           user={user}
           chats={chats}
+          layerAccess={layerAccess}
           onCollapse={() => setMobileSidebarOpen(false)}
           onExpand={() => setMobileSidebarOpen(true)}
           collapsed={false}
@@ -84,6 +87,7 @@ export function DashboardShell({ user, chats, children }: Props) {
             <Sidebar
               user={user}
               chats={chats}
+              layerAccess={layerAccess}
               onCollapse={() => setDesktopSidebarOpen(false)}
               onExpand={() => setDesktopSidebarOpen(true)}
               collapsed={!desktopSidebarOpen}

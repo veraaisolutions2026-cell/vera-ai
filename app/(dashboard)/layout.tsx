@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getRecentChats } from "@/lib/db/chats"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { DashboardShell } from "./components/dashboard-shell"
 import type { UserData } from "@/types/database"
 
@@ -16,13 +17,14 @@ export default async function DashboardLayout({
 
   if (!user) redirect("/login")
 
-  const [chats, profileResult] = await Promise.all([
+  const [chats, profileResult, layerAccess] = await Promise.all([
     getRecentChats(user.id, 40),
     supabase
       .from("profiles")
       .select("full_name, avatar_url, role")
       .eq("id", user.id)
       .single(),
+    getUserLayerAccess(user.id),
   ])
 
   const profile = profileResult.data
@@ -35,7 +37,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardShell user={userData} chats={chats}>
+    <DashboardShell user={userData} chats={chats} layerAccess={layerAccess}>
       {children}
     </DashboardShell>
   )

@@ -22,6 +22,7 @@ import { createMessage } from "@/lib/db/messages"
 import { resolveModelId, supportsReasoningForModel } from "@/lib/models"
 import { createServiceClient } from "@/lib/supabase/service"
 import { recordUsageEvent } from "@/lib/db/usage-events"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { getUsageAvailability } from "@/lib/db/usage-limits"
 import type { Json } from "@/types/supabase"
 
@@ -40,7 +41,7 @@ const AI_DEVTOOLS_ENABLED =
   process.env.VERA_ENABLE_AI_DEVTOOLS !== "false"
 
 const NO_EMOJI_SUFFIX =
-  "\n\nIMPORTANT: Never use emoji characters in your responses. Use clear, professional language only."
+  "\n\nIMPORTANT: Never use emoji characters in your responses. Never use em dashes (\u2014) or en dashes (\u2013) in your responses; use a comma, colon, or rewrite the sentence instead. Use clear, professional language only."
 
 const DEFAULT_SYSTEM_PROMPT = `You are Vera, an AI assistant built for auditors and professional services teams. You help with audit analysis, workpaper review, risk assessment, financial disclosure drafting, compliance checking, and related professional tasks. Keep responses precise and professional. If asked who you are, introduce yourself as Vera - do not mention Claude, Anthropic, or any other AI product.`
 
@@ -55,6 +56,25 @@ type ChatRequestBody = {
   messages?: UIMessage[]
   trigger?: "submit-message" | "regenerate-message" | "resume-stream"
   messageId?: string
+  answerPreference?: "short" | "long"
+  selectedAgentId?: string | null
+}
+
+function getAnswerPreferencePrompt(
+  answerPreference: "short" | "long" | undefined,
+  hasSelectedAgent: boolean
+): string {
+  if (hasSelectedAgent) return ""
+
+  if (answerPreference === "short") {
+    return "\n\nRESPONSE STYLE: User asked for a short answer. Keep it concise and direct. Prefer short paragraphs and compact bullet points only when they improve clarity."
+  }
+
+  if (answerPreference === "long") {
+    return "\n\nRESPONSE STYLE: User asked for a long answer. Provide fuller detail, relevant context, and practical depth while staying clear and structured."
+  }
+
+  return ""
 }
 
 function getTextFromParts(parts: UIMessage["parts"]): string {
@@ -216,7 +236,7 @@ async function prepareMessagesForModel(
         }
 
         const { data } = await storageClient.storage
-          .from(CHAT_ATTACHMENTS_BUCKET)
+          .from(metadata.bucket ?? CHAT_ATTACHMENTS_BUCKET)
           .createSignedUrl(metadata.storagePath, 60 * 60)
 
         preparedParts.push({
@@ -228,6 +248,102 @@ async function prepareMessagesForModel(
       return { ...message, parts: preparedParts }
     })
   )
+}
+
+async function buildAgentKnowledgeBaseFileParts(
+  agentId: string,
+  storageClient: ReturnType<typeof createServiceClient>
+): Promise<UIMessage["parts"]> {
+  const linkResult = await storageClient
+    .from("agent_knowledge_base_files")
+    .select("file_id")
+    .eq("agent_id", agentId)
+
+  if (linkResult.error || !linkResult.data?.length) {
+    return []
+  }
+
+  const fileIds = linkResult.data.map((row) => row.file_id)
+
+  const filesResult = await storageClient
+    .from("knowledge_base_files")
+    .select("id, name, mime_type, bucket, storage_path, size_bytes")
+    .in("id", fileIds)
+    .eq("mime_type", "application/pdf")
+
+  if (filesResult.error || !filesResult.data?.length) {
+    return []
+  }
+
+  const parts: UIMessage["parts"] = []
+
+  for (const file of filesResult.data) {
+    const signed = await storageClient.storage
+      .from(file.bucket)
+      .createSignedUrl(file.storage_path, 60 * 60)
+
+    if (!signed.data?.signedUrl) continue
+
+    parts.push({
+      type: "file",
+      filename: file.name,
+      mediaType: file.mime_type,
+      url: signed.data.signedUrl,
+      providerMetadata: {
+        vera: {
+          attachmentType: "pdf",
+          storagePath: file.storage_path,
+          bucket: file.bucket,
+          size: file.size_bytes,
+          source: "knowledge-base",
+        },
+      },
+    })
+  }
+
+  return parts
+}
+
+function appendPartsToLastUserMessage(
+  messages: UIMessage[],
+  partsToAppend: UIMessage["parts"]
+): UIMessage[] {
+  if (!partsToAppend.length) return messages
+
+  const nextMessages = [...messages]
+
+  for (let i = nextMessages.length - 1; i >= 0; i -= 1) {
+    const message = nextMessages[i]
+    if (!message || message.role !== "user") continue
+
+    const existingFileKeys = new Set(
+      message.parts
+        .filter((part): part is PersistedFilePart => part.type === "file")
+        .map((part) => {
+          const metadata = getVeraAttachmentMetadata(part)
+          return metadata ? `${metadata.bucket}:${metadata.storagePath}` : null
+        })
+        .filter((value): value is string => Boolean(value))
+    )
+
+    const deduped = partsToAppend.filter((part) => {
+      if (part.type !== "file") return true
+      const metadata = getVeraAttachmentMetadata(part as PersistedFilePart)
+      if (!metadata) return true
+
+      const key = `${metadata.bucket}:${metadata.storagePath}`
+      return !existingFileKeys.has(key)
+    })
+
+    nextMessages[i] = {
+      ...message,
+      parts: [...message.parts, ...deduped],
+    }
+
+    break
+  }
+
+  return nextMessages
 }
 
 /*
@@ -307,6 +423,8 @@ export async function POST(
       usageAvailability.monthlyRequestLimit
     )
   }
+
+  const layerAccess = await getUserLayerAccess(userId)
 
   const requestTrigger = body.trigger ?? "submit-message"
   const lastUserIndex = requestMessages
@@ -570,12 +688,51 @@ export async function POST(
     }
   }
 
-  const selectedAgent = chat.agent_id ? await getAgent(chat.agent_id) : null
+  const requestedAgentId =
+    typeof body.selectedAgentId === "string"
+      ? body.selectedAgentId
+      : body.selectedAgentId === null
+        ? null
+        : chat.agent_id
+
+  let selectedAgent = null
+  if (requestedAgentId) {
+    const agent = await getAgent(requestedAgentId)
+    if (agent && (agent.is_builtin || agent.user_id === userId)) {
+      const canUseAgent = agent.is_builtin
+        ? layerAccess.allowBuiltInAgents
+        : layerAccess.allowCustomAgentCrud
+
+      if (canUseAgent) {
+        selectedAgent = agent
+      }
+    }
+  }
+
+  const answerPreferencePrompt = getAnswerPreferencePrompt(
+    body.answerPreference,
+    Boolean(selectedAgent)
+  )
   const systemPrompt =
-    (selectedAgent?.system_prompt ?? DEFAULT_SYSTEM_PROMPT) + NO_EMOJI_SUFFIX
+    (selectedAgent?.system_prompt ?? DEFAULT_SYSTEM_PROMPT) +
+    NO_EMOJI_SUFFIX +
+    answerPreferencePrompt
   const resolvedModelId = resolveModelId(chat.model)
   const reasoningEnabledForModel = supportsReasoningForModel(resolvedModelId)
   const usageEventKey = crypto.randomUUID()
+
+  let modelInputMessages = generationMessages
+
+  if (selectedAgent) {
+    const linkedFileParts = await buildAgentKnowledgeBaseFileParts(
+      selectedAgent.id,
+      bookkeepingSupabase
+    )
+    modelInputMessages = appendPartsToLastUserMessage(
+      generationMessages,
+      linkedFileParts
+    )
+  }
 
   const result = streamText({
     // Anthropic can return transient overload responses; retry to keep UX stable.
@@ -588,7 +745,7 @@ export async function POST(
       : anthropic(resolvedModelId),
     system: systemPrompt,
     messages: await convertToModelMessages(
-      await prepareMessagesForModel(generationMessages, bookkeepingSupabase)
+      await prepareMessagesForModel(modelInputMessages, bookkeepingSupabase)
     ),
     providerOptions: reasoningEnabledForModel
       ? {

@@ -22,6 +22,7 @@
 .DS_Store
 *.pem
 /docs
+milestone2.md
 
 # debug
 npm-debug.log*

@@ -81,24 +81,10 @@ export async function signInWithEmail(
   }
 
   const supabase = await createClient()
-  const { data: signInData, error } = await supabase.auth.signInWithPassword(
-    parsed.data
-  )
+  const { error } = await supabase.auth.signInWithPassword(parsed.data)
 
   if (error) {
     return { error: "Invalid email or password. Please try again." }
-  }
-
-  if (signInData.user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", signInData.user.id)
-      .single()
-
-    if (profile?.role === "admin") {
-      redirect("/admin")
-    }
   }
 
   redirect("/dashboard")

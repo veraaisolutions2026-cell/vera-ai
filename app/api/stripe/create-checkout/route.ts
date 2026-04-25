@@ -4,7 +4,7 @@ import { getSubscription } from "@/lib/db/subscriptions"
 import { z } from "zod"
 
 const schema = z.object({
-  plan: z.enum(["pro", "enterprise"]),
+  plan: z.enum(["vera-coach", "vera-intelligence"]),
   interval: z.enum(["monthly", "annual"]),
 })
 

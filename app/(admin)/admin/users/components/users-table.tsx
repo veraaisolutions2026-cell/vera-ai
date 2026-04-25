@@ -3,7 +3,18 @@
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/animate-ui/components/radix/alert-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +45,7 @@ const roleColors: Record<Profile["role"], string> = {
 export function UsersTable({ users }: { users: UserRow[] }) {
   const router = useRouter()
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [confirmUserId, setConfirmUserId] = useState<string | null>(null)
   const [roleFilter, setRoleFilter] = useState<"all" | Profile["role"]>("all")
   const [rowsPerPage, setRowsPerPage] = useState<10 | 20 | 50>(10)
   const [page, setPage] = useState(1)
@@ -47,20 +59,24 @@ export function UsersTable({ users }: { users: UserRow[] }) {
   const currentPage = Math.min(page, totalPages)
   const startIndex = (currentPage - 1) * rowsPerPage
   const pagedUsers = filteredUsers.slice(startIndex, startIndex + rowsPerPage)
+  const selectedUser = confirmUserId
+    ? (users.find((user) => user.id === confirmUserId) ?? null)
+    : null
 
   async function handleDeleteUser(userId: string) {
-    if (!confirm("Remove this user account permanently?")) return
     setDeleting(userId)
     const res = await fetch(`/api/admin/users/${userId}`, { method: "DELETE" })
     setDeleting(null)
+    setConfirmUserId(null)
 
     if (res.ok) {
       router.refresh()
+      toast.success("User removed successfully.")
       return
     }
 
     const data = (await res.json().catch(() => ({}))) as { error?: string }
-    alert(data.error ?? "Failed to remove user")
+    toast.error(data.error ?? "Failed to remove user")
   }
 
   if (users.length === 0) {
@@ -176,7 +192,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
                   <DropdownMenuLabel>User actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onSelect={() => handleDeleteUser(user.id)}
+                    onSelect={() => setConfirmUserId(user.id)}
                     disabled={deleting === user.id}
                     variant="destructive"
                   >
@@ -245,7 +261,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
                       <DropdownMenuLabel>User actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onSelect={() => handleDeleteUser(user.id)}
+                        onSelect={() => setConfirmUserId(user.id)}
                         disabled={deleting === user.id}
                         variant="destructive"
                       >
@@ -292,6 +308,41 @@ export function UsersTable({ users }: { users: UserRow[] }) {
           </PaginationContent>
         </Pagination>
       )}
+
+      <AlertDialog
+        open={Boolean(confirmUserId)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setConfirmUserId(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove user account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action permanently removes
+              {selectedUser?.email ? ` ${selectedUser.email}` : " this user"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(deleting)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!confirmUserId || Boolean(deleting)}
+              onClick={() => {
+                if (confirmUserId) {
+                  void handleDeleteUser(confirmUserId)
+                }
+              }}
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+            >
+              {deleting ? "Removing..." : "Remove user"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

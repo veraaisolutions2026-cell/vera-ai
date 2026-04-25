@@ -21,6 +21,7 @@ type SpendPoint = {
 export type UsageAnalytics = {
   totalRequests: number
   monthRequests: number
+  isAdminUnlimitedMode: boolean
   monthlyRequestLimit: number | null
   remainingRequests: number | null
   usagePercent: number | null
@@ -234,9 +235,9 @@ export async function getUsageAnalytics(
   const activeDaysLast14 = activity.filter((point) => point.requests > 0).length
 
   const plan = usageAvailability.plan
-  const includedRequestsLabel = formatApproximateRequests(
-    getBillingPlan(plan).approximateMonthlyRequests
-  )
+  const includedRequestsLabel = usageAvailability.isAdminUnlimitedMode
+    ? "Unlimited"
+    : formatApproximateRequests(getBillingPlan(plan).approximateMonthlyRequests)
   const monthlyUsageBudgetUsd = getMonthlyUsageBudgetUsd(
     plan,
     usageAvailability.billingInterval
@@ -270,6 +271,7 @@ export async function getUsageAnalytics(
   return {
     totalRequests: usageSource.totalRequests,
     monthRequests: usageAvailability.monthRequests,
+    isAdminUnlimitedMode: usageAvailability.isAdminUnlimitedMode,
     monthlyRequestLimit: usageAvailability.monthlyRequestLimit,
     remainingRequests: usageAvailability.remainingRequests,
     usagePercent:

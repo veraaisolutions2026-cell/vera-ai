@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { adminCreateAgent, getAllAgents } from "@/lib/db/admin"
+import { setBuiltinAgentLayers } from "@/lib/db/builtin-agent-layer-access"
 import { z } from "zod"
+
+const layerSchema = z.enum(["coach", "intelligence"])
 
 const agentSchema = z.object({
   name: z.string().min(1),
@@ -12,6 +15,7 @@ const agentSchema = z.object({
   category: z.string().nullable().optional(),
   is_builtin: z.boolean().optional().default(true),
   user_id: z.string().nullable().optional().default(null),
+  layer_access: z.array(layerSchema).min(1).default(["coach", "intelligence"]),
 })
 
 async function assertAdmin() {
@@ -54,10 +58,12 @@ export async function POST(request: Request) {
     )
   }
 
+  const { layer_access: layerAccess, ...agentPayload } = parsed.data
+
   const agent = await adminCreateAgent({
-    ...parsed.data,
-    description: parsed.data.description ?? null,
-    category: parsed.data.category ?? null,
+    ...agentPayload,
+    description: agentPayload.description ?? null,
+    category: agentPayload.category ?? null,
     is_builtin: true,
     user_id: null,
   })
@@ -67,6 +73,8 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
+
+  await setBuiltinAgentLayers(agent.id, layerAccess)
 
   return NextResponse.json(agent, { status: 201 })
 }

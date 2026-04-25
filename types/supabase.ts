@@ -14,6 +14,49 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_knowledge_base_files: {
+        Row: {
+          agent_id: string
+          created_at: string
+          file_id: string
+          linked_by_user_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          file_id: string
+          linked_by_user_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          file_id?: string
+          linked_by_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_knowledge_base_files_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_knowledge_base_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_base_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_knowledge_base_files_linked_by_user_id_fkey"
+            columns: ["linked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agents: {
         Row: {
           base_model: string
@@ -189,6 +232,66 @@ export type Database = {
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_base_files: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: string
+          link_status: Database["public"]["Enums"]["kb_file_link_status"]
+          mime_type: string
+          name: string
+          owner_user_id: string | null
+          scope: Database["public"]["Enums"]["kb_file_scope"]
+          size_bytes: number
+          storage_path: string
+          updated_at: string
+          uploaded_by_user_id: string
+        }
+        Insert: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          link_status?: Database["public"]["Enums"]["kb_file_link_status"]
+          mime_type: string
+          name: string
+          owner_user_id?: string | null
+          scope?: Database["public"]["Enums"]["kb_file_scope"]
+          size_bytes: number
+          storage_path: string
+          updated_at?: string
+          uploaded_by_user_id: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          link_status?: Database["public"]["Enums"]["kb_file_link_status"]
+          mime_type?: string
+          name?: string
+          owner_user_id?: string | null
+          scope?: Database["public"]["Enums"]["kb_file_scope"]
+          size_bytes?: number
+          storage_path?: string
+          updated_at?: string
+          uploaded_by_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_files_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_base_files_uploaded_by_user_id_fkey"
+            columns: ["uploaded_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -392,7 +495,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      kb_file_link_status: "unlinked" | "linked-to-agent"
+      kb_file_scope: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -519,6 +623,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      kb_file_link_status: ["unlinked", "linked-to-agent"],
+      kb_file_scope: ["admin", "user"],
+    },
   },
 } as const

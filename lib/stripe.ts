@@ -17,13 +17,13 @@ export const PLAN_PRICING: Record<
   string,
   { name: string; monthly: number; annual: number }
 > = {
-  pro: {
-    name: "Pro",
+  "vera-coach": {
+    name: "Vera Coach",
     monthly: 4900, // $49/mo
     annual: 39900, // $399/yr (~$33.25/mo)
   },
-  enterprise: {
-    name: "Enterprise",
+  "vera-intelligence": {
+    name: "Vera Intelligence",
     monthly: 14900, // $149/mo
     annual: 119900, // $1,199/yr (~$99.92/mo)
   },

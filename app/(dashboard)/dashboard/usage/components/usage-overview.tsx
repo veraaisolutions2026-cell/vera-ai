@@ -38,12 +38,12 @@ const spendConfig = {
 export function UsageOverview({ usage }: Props) {
   const usageLimitLabel =
     usage.monthlyRequestLimit === null
-      ? "Unlimited"
+      ? `${usage.monthRequests.toLocaleString()} / ∞`
       : `${usage.monthRequests.toLocaleString()} / ${usage.monthlyRequestLimit.toLocaleString()}`
 
   const remainingLabel =
     usage.remainingRequests === null
-      ? "Unlimited"
+      ? "∞"
       : usage.remainingRequests.toLocaleString()
 
   const cards = [
@@ -62,7 +62,7 @@ export function UsageOverview({ usage }: Props) {
       value: remainingLabel,
       sub:
         usage.monthlyRequestLimit === null
-          ? "No monthly cap"
+          ? `${usage.monthRequests.toLocaleString()} requests tracked this month`
           : `${usage.usagePercent ?? 0}% used`,
     },
     {
@@ -72,10 +72,17 @@ export function UsageOverview({ usage }: Props) {
     },
     {
       label: "Current Plan",
-      value: usage.plan.toUpperCase(),
+      value: usage.isAdminUnlimitedMode
+        ? "UNLIMITED"
+        : usage.plan.toUpperCase(),
       sub: `${usage.status} • ${usage.includedRequestsLabel}`,
     },
   ]
+
+  const exhaustedDescription =
+    usage.plan === "vera-intelligence"
+      ? "You have reached the request limit for your current tier. Contact sales to increase your monthly capacity."
+      : "You have used your available requests for this month. Upgrade your plan to continue sending messages."
 
   return (
     <div className="space-y-6">
@@ -85,8 +92,7 @@ export function UsageOverview({ usage }: Props) {
             Monthly usage limit reached
           </p>
           <p className="mt-1 text-xs text-destructive/90">
-            You have used your available requests for this month. Upgrade your
-            plan to continue sending messages.
+            {exhaustedDescription}
           </p>
         </div>
       )}
@@ -98,7 +104,7 @@ export function UsageOverview({ usage }: Props) {
             className="rounded-xl bg-card p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_0_1px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] dark:ring-1 dark:ring-white/6"
           >
             <p className="text-xs text-muted-foreground">{card.label}</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
+            <p className="mt-2 text-xl font-semibold tracking-tighter tabular-nums">
               {card.value}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{card.sub}</p>

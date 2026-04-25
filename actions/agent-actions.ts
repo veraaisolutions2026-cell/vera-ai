@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 
 export async function createUserAgent(data: {
   name: string
@@ -16,6 +17,11 @@ export async function createUserAgent(data: {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
+
+  const layerAccess = await getUserLayerAccess(user.id)
+  if (!layerAccess.allowCustomAgentCrud) {
+    return { error: "Custom agent management is not available on your plan" }
+  }
 
   const { data: agent, error } = await supabase
     .from("agents")
@@ -50,6 +56,11 @@ export async function updateUserAgent(
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
 
+  const layerAccess = await getUserLayerAccess(user.id)
+  if (!layerAccess.allowCustomAgentCrud) {
+    return { error: "Custom agent management is not available on your plan" }
+  }
+
   // Verify ownership — only update if user owns this non-builtin agent
   const { error } = await supabase
     .from("agents")
@@ -72,6 +83,11 @@ export async function deleteUserAgent(
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
+
+  const layerAccess = await getUserLayerAccess(user.id)
+  if (!layerAccess.allowCustomAgentCrud) {
+    return { error: "Custom agent management is not available on your plan" }
+  }
 
   // Verify ownership before deleting
   const { error } = await supabase

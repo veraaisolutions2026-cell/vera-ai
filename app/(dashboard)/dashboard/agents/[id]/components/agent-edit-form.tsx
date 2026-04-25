@@ -6,6 +6,7 @@ import { ArrowLeft, Bot, Loader2, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { Loader } from "@/components/ai/loader"
+import { AgentKnowledgeBaseManager } from "@/components/agent-knowledge-base-manager"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -215,6 +216,8 @@ export function AgentEditForm({ agent }: { agent: Agent }) {
                 required
               />
             </div>
+
+            <AgentKnowledgeBaseManager agentId={agent.id} />
           </form>
         </div>
       </div>

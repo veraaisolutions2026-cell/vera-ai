@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getAgent } from "@/lib/db/agents"
+import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { AgentEditForm } from "./components/agent-edit-form"
 
 export const metadata = {
@@ -19,6 +20,11 @@ export default async function EditAgentPage({
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect("/login")
+
+  const layerAccess = await getUserLayerAccess(user.id)
+  if (!layerAccess.allowCustomAgentCrud) {
+    redirect("/dashboard/agents")
+  }
 
   const agent = await getAgent(id)
 

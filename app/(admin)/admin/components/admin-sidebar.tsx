@@ -13,6 +13,7 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   Sparkles,
   Sun,
   Users,
@@ -38,6 +39,18 @@ import type { UserData } from "@/types/database"
 
 const navItems = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+  {
+    href: "/admin/vera-coach",
+    label: "Vera Coach",
+    icon: Sparkles,
+    exact: false,
+  },
+  {
+    href: "/admin/vera-intelligence",
+    label: "Vera Intelligence",
+    icon: Bot,
+    exact: false,
+  },
   { href: "/admin/users", label: "Users", icon: Users, exact: false },
   { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
   {
@@ -50,6 +63,12 @@ const navItems = [
     href: "/admin/subscriptions",
     label: "Subscriptions",
     icon: CreditCard,
+    exact: false,
+  },
+  {
+    href: "/admin/settings",
+    label: "Settings",
+    icon: Settings,
     exact: false,
   },
 ]

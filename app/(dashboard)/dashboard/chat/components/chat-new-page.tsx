@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { startChat } from "@/actions/chat-actions"
+import type { PlanId } from "@/lib/billing-plans"
 import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
@@ -34,6 +35,7 @@ export function ChatNewPage({ userName, agents }: Props) {
   const [model, setModel] = useState(modelFromQuery ?? "claude-sonnet-4-6")
   const [isStarting, setIsStarting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
+  const [usagePlan, setUsagePlan] = useState<PlanId>("vera-coach")
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const submitInFlightRef = useRef(false)
   const routeHandoffRef = useRef(false)
@@ -48,26 +50,46 @@ export function ChatNewPage({ userName, agents }: Props) {
 
   const showOutOfUsageToast = useCallback(() => {
     showUsageUpsellToast({
+      reason: "usage-exhausted",
+      plan: usagePlan,
       onUpgrade: () => router.push("/dashboard/billing"),
     })
-  }, [router])
+  }, [router, usagePlan])
 
-  const hasUsageAvailable = useCallback(async () => {
+  const getUsageAvailability = useCallback(async () => {
     try {
       const response = await fetch("/api/usage/availability", {
         method: "GET",
         cache: "no-store",
       })
 
-      if (!response.ok) return true
+      if (!response.ok) {
+        return {
+          isAvailable: true,
+          plan: usagePlan,
+        }
+      }
 
-      const payload = (await response.json()) as { isAvailable?: boolean }
-      return payload.isAvailable !== false
+      const payload = (await response.json()) as {
+        isAvailable?: boolean
+        plan?: PlanId
+      }
+
+      const nextPlan = payload.plan ?? usagePlan
+      setUsagePlan(nextPlan)
+
+      return {
+        isAvailable: payload.isAvailable !== false,
+        plan: nextPlan,
+      }
     } catch {
       // Do not hard-block users if availability check cannot be reached.
-      return true
+      return {
+        isAvailable: true,
+        plan: usagePlan,
+      }
     }
-  }, [])
+  }, [usagePlan])
 
   useEffect(() => {
     if (!selectedAgentIdFromQuery) return
@@ -131,9 +153,10 @@ export function ChatNewPage({ userName, agents }: Props) {
 
   const handleStartChat = useCallback(
     async (overrideText?: string) => {
+      const files = attachedFiles
       const text = (overrideText ?? input).trim()
       if (
-        (text.length === 0 && attachedFiles.length === 0) ||
+        (text.length === 0 && files.length === 0) ||
         isStarting ||
         submitInFlightRef.current
       ) {
@@ -151,8 +174,9 @@ export function ChatNewPage({ userName, agents }: Props) {
         return
       }
 
-      const usageAvailable = await hasUsageAvailable()
-      if (!usageAvailable) {
+      const usage = await getUsageAvailability()
+      if (!usage.isAvailable) {
+        setUsagePlan(usage.plan)
         showOutOfUsageToast()
         submitInFlightRef.current = false
         setIsStarting(false)
@@ -160,8 +184,6 @@ export function ChatNewPage({ userName, agents }: Props) {
       }
 
       try {
-        const files = attachedFiles
-
         const result = await startChat(text, files, selectedAgent?.id, model)
 
         if (result.redirectTo) {
@@ -180,8 +202,14 @@ export function ChatNewPage({ userName, agents }: Props) {
           return
         }
 
+        const query = new URLSearchParams()
+
         routeHandoffRef.current = true
-        router.push(`/dashboard/chat/${result.chatId}`)
+        router.push(
+          query.toString()
+            ? `/dashboard/chat/${result.chatId}?${query.toString()}`
+            : `/dashboard/chat/${result.chatId}`
+        )
       } catch {
         toast.error("Network failure. Please try again.")
       } finally {
@@ -193,12 +221,12 @@ export function ChatNewPage({ userName, agents }: Props) {
     },
     [
       attachedFiles,
-      hasUsageAvailable,
+      getUsageAvailability,
       input,
       isStarting,
       model,
       router,
-      selectedAgent?.id,
+      selectedAgent,
       showOutOfUsageToast,
     ]
   )
