@@ -725,7 +725,11 @@ function AcaMessage({
 
 /* ── Main component ─────────────────────────────────────────────── */
 
-export function AgentBuilder() {
+export function AgentBuilder({
+  afterSavePath = "/dashboard/agents",
+}: {
+  afterSavePath?: string
+}) {
   const router = useRouter()
   const chatEndRef = useRef<HTMLDivElement>(null)
   const processedToolIds = useRef(new Set<string>())
@@ -847,7 +851,7 @@ export function AgentBuilder() {
     }
     toast.success("Agent created successfully!")
     setIsRouteLoading(true)
-    router.push("/dashboard/agents")
+    router.push(afterSavePath)
     router.refresh()
   }
 
@@ -862,7 +866,7 @@ export function AgentBuilder() {
       <div className="flex shrink-0 flex-col gap-3 border-b border-border/50 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/agents"
+            href={afterSavePath}
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -880,7 +884,7 @@ export function AgentBuilder() {
             <button
               type="button"
               onClick={() =>
-                navigateWithLoader(`/dashboard/agents/${createdAgentId}`)
+                navigateWithLoader(`${afterSavePath}/${createdAgentId}`)
               }
               className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border/60 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/8 sm:flex-none"
             >
@@ -1060,7 +1064,7 @@ export function AgentBuilder() {
                       status === "streaming"
                     }
                     onView={(id) =>
-                      navigateWithLoader(`/dashboard/agents/${id}`)
+                      navigateWithLoader(`${afterSavePath}/${id}`)
                     }
                   />
                 ))}

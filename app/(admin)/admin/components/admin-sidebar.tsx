@@ -4,9 +4,13 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useFormStatus } from "react-dom"
+import { useState } from "react"
+import type { ComponentType } from "react"
+import { AnimatePresence, motion } from "motion/react"
 import { VeraLogo } from "@/components/ui/vera-logo"
 import {
   Bot,
+  ChevronDown,
   CreditCard,
   LayoutDashboard,
   LogOut,
@@ -37,7 +41,16 @@ import { Loader } from "@/components/ai/loader"
 import { cn } from "@/lib/utils"
 import type { UserData } from "@/types/database"
 
-const navItems = [
+type NavItem = {
+  href: string
+  label: string
+  icon: ComponentType<{ className?: string }>
+  exact: boolean
+}
+type NavGroup = { key: string; label: string | null; items: NavItem[] }
+
+// Flat list kept for collapsed sidebar icon view
+const navItems: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   {
     href: "/admin/vera-coach",
@@ -53,23 +66,74 @@ const navItems = [
   },
   { href: "/admin/users", label: "Users", icon: Users, exact: false },
   { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
-  {
-    href: "/admin/aca",
-    label: "Agent Creator",
-    icon: Sparkles,
-    exact: false,
-  },
+  { href: "/admin/aca", label: "Agent Creator", icon: Sparkles, exact: false },
   {
     href: "/admin/subscriptions",
     label: "Subscriptions",
     icon: CreditCard,
     exact: false,
   },
+  { href: "/admin/settings", label: "Settings", icon: Settings, exact: false },
+]
+
+// Grouped nav for expanded sidebar with collapsible sections
+const navGroups: NavGroup[] = [
   {
-    href: "/admin/settings",
-    label: "Settings",
-    icon: Settings,
-    exact: false,
+    key: "overview",
+    label: null,
+    items: [
+      { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
+    ],
+  },
+  {
+    key: "products",
+    label: "Products",
+    items: [
+      {
+        href: "/admin/vera-coach",
+        label: "Vera Coach",
+        icon: Sparkles,
+        exact: false,
+      },
+      {
+        href: "/admin/vera-intelligence",
+        label: "Vera Intelligence",
+        icon: Bot,
+        exact: false,
+      },
+    ],
+  },
+  {
+    key: "management",
+    label: "Management",
+    items: [
+      { href: "/admin/users", label: "Users", icon: Users, exact: false },
+      { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
+      {
+        href: "/admin/aca",
+        label: "Agent Creator",
+        icon: Sparkles,
+        exact: false,
+      },
+    ],
+  },
+  {
+    key: "account",
+    label: "Account",
+    items: [
+      {
+        href: "/admin/subscriptions",
+        label: "Subscriptions",
+        icon: CreditCard,
+        exact: false,
+      },
+      {
+        href: "/admin/settings",
+        label: "Settings",
+        icon: Settings,
+        exact: false,
+      },
+    ],
   },
 ]
 
@@ -102,6 +166,13 @@ function AdminSignOutButton() {
 export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
   const pathname = usePathname()
   const { resolvedTheme, setTheme } = useTheme()
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navGroups.map((g) => [g.key, true]))
+  )
+
+  function toggleGroup(key: string) {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const initials = user.name
     .split(" ")
@@ -203,23 +274,80 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
         </Tooltip>
       </div>
 
-      {/* Nav */}
-      <div className="flex flex-1 flex-col gap-0.5 px-2 py-2">
-        {navItems.map(({ href, label, icon: Icon, exact }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm transition-colors",
-              isActive(href, exact)
-                ? "bg-foreground/9 text-foreground"
-                : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
-            )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </Link>
-        ))}
+      {/* Nav with collapsible groups */}
+      <div className="flex flex-1 flex-col overflow-y-auto px-2 py-2">
+        {navGroups.map((group) => {
+          if (!group.label) {
+            return (
+              <div key={group.key} className="mb-1">
+                {group.items.map(({ href, label, icon: Icon, exact }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={cn(
+                      "flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm transition-colors",
+                      isActive(href, exact)
+                        ? "bg-foreground/9 text-foreground"
+                        : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            )
+          }
+
+          const isOpen = openGroups[group.key] ?? true
+
+          return (
+            <div key={group.key} className="mb-1">
+              <button
+                onClick={() => toggleGroup(group.key)}
+                className="flex w-full items-center justify-between rounded-full px-3 py-1.5 text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase transition-colors hover:bg-foreground/6 hover:text-muted-foreground"
+              >
+                <span>{group.label}</span>
+                <motion.div
+                  animate={{ rotate: isOpen ? 0 : -90 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </motion.div>
+              </button>
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    key={group.key + "-content"}
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+                    style={{ overflow: "hidden" }}
+                  >
+                    <div className="flex flex-col gap-0.5 py-0.5">
+                      {group.items.map(({ href, label, icon: Icon, exact }) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm transition-colors",
+                            isActive(href, exact)
+                              ? "bg-foreground/9 text-foreground"
+                              : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {label}
+                        </Link>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )
+        })}
       </div>
 
       {/* User footer */}

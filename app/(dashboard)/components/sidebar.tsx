@@ -445,27 +445,6 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Secondary nav */}
-      <div className="shrink-0 border-t border-border/40 px-2 py-2">
-        <div className="flex flex-col gap-1">
-          {secondaryNav.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "mx-1 flex items-center gap-2.5 rounded-full px-3 py-1.5 text-sm transition-colors",
-                pathname.startsWith(href)
-                  ? "bg-foreground/10 text-foreground"
-                  : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </Link>
-          ))}
-        </div>
-      </div>
-
       {/* User footer */}
       <div className="shrink-0 border-t border-border/40 px-2 py-2">
         <DropdownMenu>
@@ -519,11 +498,23 @@ export function Sidebar({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {secondaryNav.map(({ href, label, icon: Icon }) => (
+              <DropdownMenuItem key={href} className="rounded-full p-0">
+                <Link
+                  href={href}
+                  className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-sm"
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() =>
                 setTheme(resolvedTheme === "dark" ? "light" : "dark")
               }
-              className="gap-2"
+              className="gap-2 rounded-full"
             >
               {resolvedTheme === "dark" ? (
                 <Sun className="h-4 w-4" />
@@ -533,7 +524,7 @@ export function Sidebar({
               {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="p-0 text-destructive focus:text-destructive">
+            <DropdownMenuItem className="rounded-full p-0 text-destructive focus:text-destructive">
               <form action={signOut} className="w-full">
                 <SignOutMenuButton />
               </form>

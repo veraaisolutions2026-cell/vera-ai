@@ -1,12 +1,9 @@
-import {
-  deleteKnowledgeBaseFileAction,
-  unlinkKnowledgeBaseFileFromAgentAction,
-} from "@/actions/admin-kb-actions"
 import { getAllAgents } from "@/lib/db/admin"
 import { filterBuiltinAgentsForLayer } from "@/lib/db/builtin-agent-layer-access"
 import { createServiceClient } from "@/lib/supabase/service"
 import { KnowledgeBaseUploadCard } from "./knowledge-base-upload-card"
 import { LinkAgentForm } from "./link-agent-form"
+import { DeleteFileButton, UnlinkButton } from "./kb-file-actions"
 
 function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`
@@ -79,15 +76,7 @@ export async function KnowledgeBasePanel() {
                       </p>
                     </div>
 
-                    <form action={deleteKnowledgeBaseFileAction}>
-                      <input type="hidden" name="fileId" value={file.id} />
-                      <button
-                        type="submit"
-                        className="rounded-full border border-destructive/30 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/10"
-                      >
-                        Delete file
-                      </button>
-                    </form>
+                    <DeleteFileButton fileId={file.id} fileName={file.name} />
                   </div>
 
                   <div className="mt-3 rounded-xl border border-border/50 bg-muted/20 p-3">
@@ -118,29 +107,17 @@ export async function KnowledgeBasePanel() {
                           const agent = agentById.get(link.agent_id)
 
                           return (
-                            <form
+                            <div
                               key={`${link.agent_id}-${link.file_id}`}
-                              action={unlinkKnowledgeBaseFileFromAgentAction}
                               className="inline-flex items-center gap-2 rounded-full border border-border/70 px-3 py-1 text-xs"
                             >
-                              <input
-                                type="hidden"
-                                name="fileId"
-                                value={link.file_id}
-                              />
-                              <input
-                                type="hidden"
-                                name="agentId"
-                                value={link.agent_id}
-                              />
                               <span>{agent?.name ?? link.agent_id}</span>
-                              <button
-                                type="submit"
-                                className="text-destructive hover:underline"
-                              >
-                                Unlink
-                              </button>
-                            </form>
+                              <UnlinkButton
+                                agentId={link.agent_id}
+                                fileId={link.file_id}
+                                agentName={agent?.name ?? link.agent_id}
+                              />
+                            </div>
                           )
                         })}
                       </div>
