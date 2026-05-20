@@ -866,7 +866,14 @@ export function Sidebar({
 
         <aside className="flex h-svh w-13 shrink-0 flex-col items-center bg-sidebar">
           <div className="flex w-full flex-col items-center gap-1 px-1.5 pt-2 pb-1">
-            <VeraLogo width={20} height={20} variant="short" className="mb-1" />
+            <Link href="/" aria-label="Go to Vera AI home">
+              <VeraLogo
+                width={20}
+                height={20}
+                variant="short"
+                className="mb-1"
+              />
+            </Link>
 
             <Tooltip delayDuration={600}>
               <TooltipTrigger asChild>
@@ -1037,7 +1044,9 @@ export function Sidebar({
       <aside className="flex h-svh w-60 shrink-0 flex-col bg-sidebar">
         <div className="shrink-0">
           <div className="flex h-14 items-center justify-between px-1">
-            <VeraLogo width={104} height={30} />
+            <Link href="/" aria-label="Go to Vera AI home">
+              <VeraLogo width={104} height={30} />
+            </Link>
 
             <Tooltip delayDuration={600}>
               <TooltipTrigger asChild>

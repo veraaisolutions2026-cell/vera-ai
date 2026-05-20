@@ -69,7 +69,6 @@ export function AgentTabs({
   const filteredAgents = useMemo(() => {
     if (activeTab === "all") return allAgents
     if (activeTab === "mine") return userAgents
-    if (activeTab === "builtin") return builtinAgents
 
     if (activeTab.startsWith("group:")) {
       const tabId = activeTab.slice("group:".length)
@@ -80,7 +79,7 @@ export function AgentTabs({
     }
 
     return allAgents
-  }, [activeTab, allAgents, builtinAgents, tabAssignments, userAgents])
+  }, [activeTab, allAgents, tabAssignments, userAgents])
 
   useEffect(() => {
     setFavoriteIds(initialFavoriteAgentIds)
@@ -136,9 +135,6 @@ export function AgentTabs({
             {tab.name} ({customTabCounts[tab.id] ?? 0})
           </TabsTrigger>
         ))}
-        <TabsTrigger value="builtin">
-          Built-in ({builtinAgents.length})
-        </TabsTrigger>
       </TabsList>
 
       <TabsContents>
@@ -189,28 +185,6 @@ export function AgentTabs({
             )}
           </TabsContent>
         ) : null}
-
-        {/* Built-in */}
-        <TabsContent value="builtin">
-          {filteredAgents.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              No built-in agents configured yet. Ask your admin to set them up.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 p-px sm:grid-cols-2 lg:grid-cols-3">
-              {filteredAgents.map((agent) => (
-                <AgentCard
-                  key={agent.id}
-                  agent={agent}
-                  editable={false}
-                  isFavorite={favoriteIdSet.has(agent.id)}
-                  onToggleFavorite={handleToggleFavorite}
-                  favoritePending={isSavingFavorites}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
         {visibleCustomTabs.map((tab) => (
           <TabsContent key={tab.id} value={`group:${tab.id}`}>

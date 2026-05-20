@@ -192,7 +192,9 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
     return (
       <aside className="flex h-svh w-13 shrink-0 flex-col items-center bg-sidebar">
         <div className="flex w-full flex-col items-center gap-1 px-1.5 pt-2 pb-1">
-          <VeraLogo width={20} height={20} variant="short" className="mb-1" />
+          <Link href="/" aria-label="Go to Vera AI home">
+            <VeraLogo width={20} height={20} variant="short" className="mb-1" />
+          </Link>
           <Tooltip delayDuration={600}>
             <TooltipTrigger asChild>
               <button
@@ -258,9 +260,11 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
   return (
     <aside className="flex h-svh w-60 shrink-0 flex-col bg-sidebar">
       {/* Header — logo left, Admin label right */}
-      <div className="flex h-14 shrink-0 items-center justify-between px-4">
+      <div className="flex h-14 shrink-0 items-center justify-between px-1">
         <div className="flex items-center gap-3">
-          <VeraLogo width={74} height={20} />
+          <Link href="/" aria-label="Go to Vera AI home">
+            <VeraLogo width={104} height={30} />
+          </Link>
           <span className="border-l border-border/60 pl-3 text-xs font-medium tracking-widest text-muted-foreground/60 uppercase">
             Admin
           </span>

@@ -66,10 +66,6 @@ export function AdminAgentTabs({
     setLocalAssignments(tabAssignments)
   }, [tabAssignments])
 
-  const builtinAgents = useMemo(
-    () => agents.filter((a) => a.is_builtin),
-    [agents]
-  )
   const customAgents = useMemo(
     () => agents.filter((a) => !a.is_builtin),
     [agents]
@@ -95,7 +91,6 @@ export function AdminAgentTabs({
 
   const filteredAgents = useMemo(() => {
     if (activeTab === "all") return agents
-    if (activeTab === "builtin") return builtinAgents
     if (activeTab === "custom") return customAgents
 
     if (!activeTab.startsWith("tab:")) {
@@ -108,7 +103,7 @@ export function AdminAgentTabs({
       const agentTabIds = localAssignments[agent.id] ?? []
       return agentTabIds.includes(tabId)
     })
-  }, [activeTab, agents, builtinAgents, customAgents, localAssignments])
+  }, [activeTab, agents, customAgents, localAssignments])
 
   const activeCustomTab = activeTab.startsWith("tab:")
     ? localCustomTabs.find((tab) => tab.id === activeTab.slice(4))
@@ -413,9 +408,6 @@ export function AdminAgentTabs({
 
       <TabsList>
         <TabsTrigger value="all">All ({agents.length})</TabsTrigger>
-        <TabsTrigger value="builtin">
-          Built-in ({builtinAgents.length})
-        </TabsTrigger>
         <TabsTrigger value="custom">Custom ({customAgents.length})</TabsTrigger>
         {localCustomTabs.map((tab) => (
           <TabsTrigger key={tab.id} value={`tab:${tab.id}`}>
@@ -426,19 +418,6 @@ export function AdminAgentTabs({
 
       <TabsContents>
         <TabsContent value="all">
-          <AgentsTable
-            agents={filteredAgents}
-            builtinLayerMap={builtinLayerMap}
-            customTabs={localCustomTabs}
-            tabAssignments={localAssignments}
-            selectedAgentIds={selectedAgentIds}
-            allVisibleSelected={allVisibleSelected}
-            onToggleAgent={toggleAgent}
-            onToggleSelectVisible={handleSelectVisible}
-            onAgentsDeleted={handleAgentsDeleted}
-          />
-        </TabsContent>
-        <TabsContent value="builtin">
           <AgentsTable
             agents={filteredAgents}
             builtinLayerMap={builtinLayerMap}
