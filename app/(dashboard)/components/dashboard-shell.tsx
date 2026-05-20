@@ -114,7 +114,7 @@ export function DashboardShell({
       {/* Main content */}
       <main
         id="dashboard-main-content"
-        className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background pt-12 md:mx-4 md:my-4 md:rounded-2xl md:bg-card md:pt-0 md:shadow-sm md:ring-1 md:ring-border"
+        className="flex min-w-0 flex-1 flex-col overflow-auto bg-background pt-12 md:mx-4 md:my-4 md:rounded-2xl md:bg-card md:pt-0 md:shadow-sm md:ring-1 md:ring-border"
       >
         <RouteTransition>{children}</RouteTransition>
       </main>

@@ -80,6 +80,18 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  --scrollbar-size: 12px;
+  --scrollbar-thumb: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(
+    in oklch,
+    var(--foreground) 30%,
+    transparent
+  );
+  --scrollbar-thumb-active: color-mix(
+    in oklch,
+    var(--foreground) 38%,
+    transparent
+  );
 }
 
 .dark {
@@ -114,6 +126,17 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  --scrollbar-thumb: color-mix(in oklch, var(--foreground) 26%, transparent);
+  --scrollbar-thumb-hover: color-mix(
+    in oklch,
+    var(--foreground) 36%,
+    transparent
+  );
+  --scrollbar-thumb-active: color-mix(
+    in oklch,
+    var(--foreground) 48%,
+    transparent
+  );
 }
 
 @layer base {
@@ -131,6 +154,42 @@
   [role="button"] {
     cursor: pointer;
   }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 3rem;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ── View Transition timing ────────────────────────────────── */

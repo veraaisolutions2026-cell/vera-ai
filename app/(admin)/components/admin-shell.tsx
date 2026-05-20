@@ -86,7 +86,7 @@ export function AdminShell({ user, children }: Props) {
         </AnimatePresence>
       </motion.div>
 
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background pt-12 md:mt-2 md:mr-2 md:mb-2 md:ml-0 md:rounded-2xl md:bg-card md:pt-0 md:shadow-sm md:ring-1 md:ring-border">
+      <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-background pt-12 md:mt-2 md:mr-2 md:mb-2 md:ml-0 md:rounded-2xl md:bg-card md:pt-0 md:shadow-sm md:ring-1 md:ring-border">
         <RouteTransition>{children}</RouteTransition>
       </main>
     </div>
