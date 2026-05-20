@@ -5,10 +5,13 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
+import type { AnswerPreference } from "@/lib/answer-preference"
 
 const profileSchema = z.object({
   full_name: z.string().min(1, "Name is required").max(100),
 })
+
+const answerPreferenceSchema = z.enum(["short", "long"])
 
 const passwordSchema = z
   .object({
@@ -46,6 +49,41 @@ export async function updateProfile(formData: FormData) {
 
   revalidatePath("/dashboard/settings")
   return { success: true }
+}
+
+export async function updateAnswerPreference(
+  answerPreference: AnswerPreference
+) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" as const }
+
+  const parsed = answerPreferenceSchema.safeParse(answerPreference)
+  if (!parsed.success) {
+    return { error: "Invalid answer preference" as const }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      answer_preference: parsed.data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id)
+
+  if (error) {
+    return { error: "Failed to save preference" as const }
+  }
+
+  revalidatePath("/dashboard/settings")
+  revalidatePath("/dashboard/chat")
+
+  return {
+    success: true as const,
+    answerPreference: parsed.data,
+  }
 }
 
 export async function updatePassword(formData: FormData) {

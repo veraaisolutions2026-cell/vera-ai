@@ -215,6 +215,7 @@ export function ChatHeader({ chatId, initialTitle, messages }: Props) {
           <AnimatePresence mode="wait" initial={false}>
             <motion.h1
               key={title || "Untitled"}
+              data-testid="chat-title"
               className="truncate text-sm font-medium text-foreground"
               initial={{ opacity: 0, y: 5, filter: "blur(4px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}

@@ -169,13 +169,13 @@ export function UsersTable({ users }: { users: UserRow[] }) {
                 <div className="mt-2 flex items-center gap-2">
                   <span
                     className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize",
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize",
                       roleColors[user.role]
                     )}
                   >
                     {user.role}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {new Date(user.created_at).toLocaleDateString()}
                   </span>
                 </div>
@@ -239,7 +239,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
                 <td className="px-4 py-3">
                   <span
                     className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize",
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize",
                       roleColors[user.role]
                     )}
                   >

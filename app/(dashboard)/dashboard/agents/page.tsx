@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { getAdminAgentTabsState } from "@/lib/db/admin-agent-tabs"
 import { getBuiltinAgents, getUserAgents } from "@/lib/db/agents"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { UpgradeCreateAgentButton } from "./components/upgrade-create-agent-button"
@@ -24,14 +25,25 @@ export default async function AgentsPage() {
     redirect("/dashboard/chat")
   }
 
-  const [builtinAgents, userAgents] = await Promise.all([
-    layerAccess.allowBuiltInAgents
-      ? getBuiltinAgents(layerAccess.layer)
-      : Promise.resolve([]),
-    layerAccess.allowCustomAgentCrud
-      ? getUserAgents(user.id)
-      : Promise.resolve([]),
-  ])
+  const [builtinAgents, userAgents, profileResult, tabState] =
+    await Promise.all([
+      layerAccess.allowBuiltInAgents
+        ? getBuiltinAgents(layerAccess.layer)
+        : Promise.resolve([]),
+      layerAccess.allowCustomAgentCrud
+        ? getUserAgents(user.id)
+        : Promise.resolve([]),
+      supabase
+        .from("profiles")
+        .select("favorite_agent_ids")
+        .eq("id", user.id)
+        .single(),
+      getAdminAgentTabsState(),
+    ])
+
+  const favoriteAgentIds = Array.isArray(profileResult.data?.favorite_agent_ids)
+    ? profileResult.data.favorite_agent_ids
+    : []
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
@@ -63,6 +75,9 @@ export default async function AgentsPage() {
         builtinAgents={builtinAgents}
         userAgents={userAgents}
         allowCustomAgentCrud={layerAccess.allowCustomAgentCrud}
+        initialFavoriteAgentIds={favoriteAgentIds}
+        customTabs={tabState.tabs}
+        tabAssignments={tabState.assignments}
       />
     </div>
   )

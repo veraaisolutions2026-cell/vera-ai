@@ -206,6 +206,13 @@ export function AdminAgentTabs({
     )
   }
 
+  function handleAgentsDeleted(agentIds: string[]) {
+    const deletedIds = new Set(agentIds)
+
+    setSelectedAgentIds((prev) => prev.filter((id) => !deletedIds.has(id)))
+    setSelectedFolderIds([])
+  }
+
   async function handleApplyFolders() {
     if (selectedAgentIds.length === 0 || isAssigning) return
 
@@ -292,7 +299,7 @@ export function AdminAgentTabs({
               type="button"
               onClick={() => setIsDeleteDialogOpen(true)}
               disabled={isDeletingTab}
-              className="inline-flex items-center gap-1 rounded-full border border-destructive/30 px-2.5 py-1 text-[11px] text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-full border border-destructive/30 px-2.5 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-40"
             >
               {isDeletingTab ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -395,7 +402,7 @@ export function AdminAgentTabs({
                 onClick={() => {
                   void handleDeleteActiveTab()
                 }}
-                className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                className="bg-destructive text-white hover:bg-destructive/90"
               >
                 {isDeletingTab ? "Deleting..." : "Delete folder"}
               </AlertDialogAction>
@@ -428,6 +435,7 @@ export function AdminAgentTabs({
             allVisibleSelected={allVisibleSelected}
             onToggleAgent={toggleAgent}
             onToggleSelectVisible={handleSelectVisible}
+            onAgentsDeleted={handleAgentsDeleted}
           />
         </TabsContent>
         <TabsContent value="builtin">
@@ -440,6 +448,7 @@ export function AdminAgentTabs({
             allVisibleSelected={allVisibleSelected}
             onToggleAgent={toggleAgent}
             onToggleSelectVisible={handleSelectVisible}
+            onAgentsDeleted={handleAgentsDeleted}
           />
         </TabsContent>
         <TabsContent value="custom">
@@ -452,6 +461,7 @@ export function AdminAgentTabs({
             allVisibleSelected={allVisibleSelected}
             onToggleAgent={toggleAgent}
             onToggleSelectVisible={handleSelectVisible}
+            onAgentsDeleted={handleAgentsDeleted}
           />
         </TabsContent>
         {localCustomTabs.map((tab) => (
@@ -465,6 +475,7 @@ export function AdminAgentTabs({
               allVisibleSelected={allVisibleSelected}
               onToggleAgent={toggleAgent}
               onToggleSelectVisible={handleSelectVisible}
+              onAgentsDeleted={handleAgentsDeleted}
             />
           </TabsContent>
         ))}

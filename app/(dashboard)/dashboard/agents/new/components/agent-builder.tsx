@@ -12,8 +12,6 @@ import {
   ArrowRight,
   Bot,
   Brain,
-  Check,
-  ChevronDown,
   ChevronRight,
   Loader2,
   PenLine,
@@ -41,13 +39,10 @@ import {
   type TaskStatus,
 } from "@/components/animate-ui/components/task"
 import { cn } from "@/lib/utils"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/animate-ui/components/radix/popover"
 
 /* ── Animation helpers (mirrors chat-message.tsx) ─────────────── */
+import { ModelPicker } from "@/components/model-picker"
+import { DEFAULT_CHAT_MODEL_ID, getModelLabel } from "@/lib/models"
 
 const CHAR_STAGGER = 0.008
 const BLOCK_DUR = 0.32
@@ -57,31 +52,39 @@ type Segment = { type: "text" | "block"; content: string }
 function splitIntoSegments(content: string): Segment[] {
   const segments: Segment[] = []
   const lines = content.split("\n")
-  let i = 0
+  let index = 0
   let textLines: string[] = []
 
   function flushText() {
     const text = textLines.join("\n").trim()
-    if (text) segments.push({ type: "text", content: text })
+    if (text) {
+      segments.push({ type: "text", content: text })
+    }
     textLines = []
   }
 
-  while (i < lines.length) {
-    const line = lines[i]
+  while (index < lines.length) {
+    const line = lines[index]
 
     if (/^\s*(```|~~~)/.test(line)) {
       flushText()
       const fence = line.trimStart().match(/^(```|~~~)/)?.[0] ?? "```"
       const codeLines = [line]
-      i++
-      while (i < lines.length && !lines[i].trimStart().startsWith(fence)) {
-        codeLines.push(lines[i])
-        i++
+      index += 1
+
+      while (
+        index < lines.length &&
+        !lines[index].trimStart().startsWith(fence)
+      ) {
+        codeLines.push(lines[index])
+        index += 1
       }
-      if (i < lines.length) {
-        codeLines.push(lines[i])
-        i++
+
+      if (index < lines.length) {
+        codeLines.push(lines[index])
+        index += 1
       }
+
       segments.push({ type: "block", content: codeLines.join("\n") })
       continue
     }
@@ -89,41 +92,43 @@ function splitIntoSegments(content: string): Segment[] {
     if (line.trimStart().startsWith("|")) {
       flushText()
       const tableLines = [line]
-      i++
-      while (i < lines.length && lines[i].trimStart().startsWith("|")) {
-        tableLines.push(lines[i])
-        i++
+      index += 1
+
+      while (index < lines.length && lines[index].trimStart().startsWith("|")) {
+        tableLines.push(lines[index])
+        index += 1
       }
+
       segments.push({ type: "block", content: tableLines.join("\n") })
       continue
     }
 
     textLines.push(line)
-    i++
+    index += 1
   }
 
   flushText()
-  return segments.filter((s) => s.content.trim())
+  return segments.filter((segment) => segment.content.trim())
 }
 
-function isPlainText(text: string): boolean {
+function isPlainText(text: string) {
   return !/^#{1,6}\s|^\s*[-*+]\s|^\s*\d+\.\s|\*\*|\*[^*\s]|__|`|\[.+\]\(|^>/m.test(
     text
   )
 }
 
 function buildAnimSegments(content: string) {
-  const raw = splitIntoSegments(content)
   let delay = 0.02
-  return raw.map((seg) => {
-    const segDelay = delay
-    const plain = seg.type === "text" && isPlainText(seg.content)
-    if (plain) {
-      delay += seg.content.length * CHAR_STAGGER + 0.18
-    } else {
-      delay += BLOCK_DUR + 0.1
-    }
-    return { ...seg, delay: segDelay, plain }
+
+  return splitIntoSegments(content).map((segment) => {
+    const segmentDelay = delay
+    const plain = segment.type === "text" && isPlainText(segment.content)
+
+    delay += plain
+      ? segment.content.length * CHAR_STAGGER + 0.18
+      : BLOCK_DUR + 0.1
+
+    return { ...segment, delay: segmentDelay, plain }
   })
 }
 
@@ -166,7 +171,7 @@ const mdComponents = {
       return (
         <div className="mb-2 overflow-hidden rounded-lg border border-border/50 bg-muted/50">
           <div className="border-b border-border/40 px-3 py-1.5">
-            <span className="font-mono text-[10px] tracking-wide text-muted-foreground/70 uppercase">
+            <span className="font-mono text-xs tracking-wide text-muted-foreground/70 uppercase">
               {match[1]}
             </span>
           </div>
@@ -368,83 +373,6 @@ function AnimatedText({
 }
 
 /* ── Single Travers message ─────────────────────────────────────── */
-/* ── Model label helper ─────────────────────────────────────────── */
-
-function getModelLabel(model?: string): string {
-  if (!model) return "Claude Sonnet"
-  if (model.includes("opus")) return "Claude Opus"
-  if (model.includes("haiku")) return "Claude Haiku"
-  return "Claude Sonnet"
-}
-
-const BASE_MODEL_OPTIONS = [
-  {
-    value: "claude-sonnet-4-6",
-    label: "Claude Sonnet — Balanced",
-  },
-  {
-    value: "claude-haiku-4-5-20251001",
-    label: "Claude Haiku — Fast",
-  },
-  {
-    value: "claude-opus-4-6",
-    label: "Claude Opus — Powerful",
-  },
-] as const
-
-function BaseModelPicker({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (nextModel: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const selected =
-    BASE_MODEL_OPTIONS.find((option) => option.value === value) ??
-    BASE_MODEL_OPTIONS[0]
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-9 w-full items-center justify-between rounded-lg border border-border/60 bg-background px-3 text-sm transition-colors outline-none hover:bg-accent focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
-        >
-          <span>{selected.label}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        className="w-(--radix-popover-trigger-width) p-1"
-      >
-        {BASE_MODEL_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => {
-              onChange(option.value)
-              setOpen(false)
-            }}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-accent"
-          >
-            <span className="min-w-0 flex-1 truncate">{option.label}</span>
-            <Check
-              className={cn(
-                "h-3.5 w-3.5 shrink-0 text-muted-foreground",
-                value === option.value ? "opacity-100" : "opacity-0"
-              )}
-            />
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-/* ── Single Travers message ─────────────────────────────────────── */
 
 function AcaMessage({
   message,
@@ -478,8 +406,11 @@ function AcaMessage({
       .map((p) => (p as { type: "text"; text: string }).text)
       .join("")
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-foreground/8 px-3.5 py-2.5 text-sm">
+      <div
+        data-testid="agent-builder-user-message"
+        className="flex justify-end"
+      >
+        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-foreground/12 px-3.5 py-2.5 text-sm">
           {text}
         </div>
       </div>
@@ -519,7 +450,10 @@ function AcaMessage({
   const IconComponent = args?.icon ? (AGENT_ICONS[args.icon] ?? Bot) : Bot
 
   return (
-    <div className="flex items-start gap-2.5">
+    <div
+      data-testid="agent-builder-assistant-message"
+      className="flex items-start gap-2.5"
+    >
       <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-foreground/8">
         <Bot className="h-3 w-3 text-foreground/50" />
       </div>
@@ -617,11 +551,11 @@ function AcaMessage({
                     title="Travers built this agent"
                     badge={
                       isDone && result?.success ? (
-                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 dark:text-emerald-400">
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500 dark:text-emerald-400">
                           Done
                         </span>
                       ) : isPending ? (
-                        <span className="rounded-full bg-foreground/6 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        <span className="rounded-full bg-foreground/6 px-2 py-0.5 text-xs text-muted-foreground">
                           Building…
                         </span>
                       ) : null
@@ -708,7 +642,7 @@ function AcaMessage({
                     <IconComponent className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <button
                       onClick={() => onView(result.agent_id!)}
-                      className="flex items-center gap-1 rounded-lg border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-foreground/8"
+                      className="flex items-center gap-1 rounded-lg border border-border/60 bg-background/80 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-foreground/8"
                     >
                       View agent
                       <ChevronRight className="h-3 w-3" />
@@ -739,7 +673,7 @@ export function AgentBuilder({
   const [icon, setIcon] = useState("Bot")
   const [description, setDescription] = useState("")
   const [systemPrompt, setSystemPrompt] = useState("")
-  const [baseModel, setBaseModel] = useState("claude-sonnet-4-6")
+  const [baseModel, setBaseModel] = useState(DEFAULT_CHAT_MODEL_ID)
   const [category, setCategory] = useState("")
   const [saving, setSaving] = useState(false)
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null)
@@ -886,6 +820,7 @@ export function AgentBuilder({
               onClick={() =>
                 navigateWithLoader(`${afterSavePath}/${createdAgentId}`)
               }
+              data-testid="agent-builder-edit-agent"
               className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-border/60 px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/8 sm:flex-none"
             >
               Edit Agent
@@ -928,6 +863,7 @@ export function AgentBuilder({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              data-testid="agent-builder-name"
               placeholder="e.g. IFRS Compliance Reviewer"
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
             />
@@ -953,6 +889,7 @@ export function AgentBuilder({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              data-testid="agent-builder-description"
               placeholder="Short description shown in agent selector"
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
               required
@@ -968,6 +905,7 @@ export function AgentBuilder({
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
+              data-testid="agent-builder-category"
               placeholder="e.g. Audit, Tax, Compliance"
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
               required
@@ -979,7 +917,7 @@ export function AgentBuilder({
             <label className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Base Model
             </label>
-            <BaseModelPicker value={baseModel} onChange={setBaseModel} />
+            <ModelPicker value={baseModel} onChange={setBaseModel} />
           </div>
 
           {/* System Prompt */}
@@ -990,6 +928,7 @@ export function AgentBuilder({
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
+              data-testid="agent-builder-system-prompt"
               placeholder="Travers will generate this automatically when you describe your agent on the right."
               rows={14}
               className="resize-y rounded-lg border border-border/60 bg-background px-3 py-2.5 font-mono text-xs leading-relaxed transition-colors outline-none focus:border-foreground/40 focus:ring-1 focus:ring-foreground/20"
@@ -1008,7 +947,7 @@ export function AgentBuilder({
             </div>
             <div>
               <p className="text-sm leading-none font-medium">Travers</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Describe your agent — Travers will design and create it for you.
               </p>
             </div>
@@ -1104,6 +1043,7 @@ export function AgentBuilder({
                 value={acaInput}
                 onChange={(e) => setAcaInput(e.target.value)}
                 onKeyDown={handleAcaKeyDown}
+                data-testid="agent-builder-chat-input"
                 placeholder="Describe your agent…"
                 rows={2}
                 className="min-h-0 flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted-foreground/50"
@@ -1111,13 +1051,14 @@ export function AgentBuilder({
               <button
                 type="button"
                 onClick={handleAcaSend}
+                data-testid="agent-builder-chat-send"
                 disabled={!acaInput.trim() || acaIsLoading}
                 className="mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background transition-opacity hover:opacity-80 disabled:opacity-30"
               >
                 <Send className="h-3.5 w-3.5" />
               </button>
             </div>
-            <p className="mt-1.5 text-center text-[10px] text-muted-foreground/40">
+            <p className="mt-1.5 text-center text-xs text-muted-foreground/40">
               Enter to send · Shift+Enter for new line
             </p>
           </div>

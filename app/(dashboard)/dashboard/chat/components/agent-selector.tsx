@@ -65,6 +65,7 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
       <PopoverTrigger asChild>
         <button
           ref={triggerRef}
+          data-testid="chat-agent-selector-trigger"
           className={cn(
             "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors",
             selectedAgent
@@ -95,6 +96,7 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
         sideOffset={8}
       >
         <button
+          data-testid="chat-agent-option-none"
           className={cn(
             "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
             !selectedAgent && "text-muted-foreground"
@@ -113,12 +115,14 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
 
         {builtins.length > 0 && (
           <>
-            <p className="mt-1 px-3 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
+            <p className="mt-1 px-3 py-1 text-xs font-semibold tracking-widest text-muted-foreground/60 uppercase">
               Built-in
             </p>
             {builtins.map((agent) => (
               <button
                 key={agent.id}
+                data-testid="chat-agent-option"
+                data-agent-id={agent.id}
                 className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
                 onClick={() => {
                   onSelect(agent)
@@ -131,7 +135,7 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
                 <div className="min-w-0 flex-1 text-left">
                   <p className="truncate leading-none">{agent.name}</p>
                   {agent.description && (
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {agent.description}
                     </p>
                   )}
@@ -146,12 +150,14 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
 
         {custom.length > 0 && (
           <>
-            <p className="mt-1 px-3 py-1 text-[10px] font-semibold tracking-widest text-muted-foreground/60 uppercase">
+            <p className="mt-1 px-3 py-1 text-xs font-semibold tracking-widest text-muted-foreground/60 uppercase">
               My agents
             </p>
             {custom.map((agent) => (
               <button
                 key={agent.id}
+                data-testid="chat-agent-option"
+                data-agent-id={agent.id}
                 className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
                 onClick={() => {
                   onSelect(agent)
@@ -164,7 +170,7 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
                 <div className="min-w-0 flex-1 text-left">
                   <p className="truncate leading-none">{agent.name}</p>
                   {agent.description && (
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {agent.description}
                     </p>
                   )}

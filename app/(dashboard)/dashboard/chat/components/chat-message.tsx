@@ -1,6 +1,13 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef, type ReactNode } from "react"
+import {
+  memo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
@@ -46,12 +53,12 @@ function CodeBlock({
   return (
     <div className="group/code relative mb-3 overflow-hidden rounded-lg border border-border/50 bg-muted/50 last:mb-0">
       <div className="flex items-center justify-between border-b border-border/40 px-3 py-1.5">
-        <span className="font-mono text-[10px] tracking-wide text-muted-foreground/70 uppercase">
+        <span className="font-mono text-xs tracking-wide text-muted-foreground/70 uppercase">
           {language || "text"}
         </span>
         <button
           onClick={copy}
-          className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
         >
           {copied ? (
             <Check className="h-3 w-3" />
@@ -131,7 +138,7 @@ const mdComponents = {
     <thead className="bg-muted/50">{children}</thead>
   ),
   th: ({ children }: { children?: ReactNode }) => (
-    <th className="border-b border-border/50 px-3 py-2 text-left text-[11px] font-medium text-muted-foreground">
+    <th className="border-b border-border/50 px-3 py-2 text-left text-xs font-medium text-muted-foreground">
       {children}
     </th>
   ),
@@ -149,6 +156,30 @@ const mdComponents = {
     </a>
   ),
   hr: () => <hr className="my-5 border-border/40" />,
+}
+
+const MarkdownContent = memo(function MarkdownContent({
+  content,
+  className,
+}: {
+  content: string
+  className?: string
+}) {
+  return (
+    <div className={className}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+})
+
+function StreamingTextContent({ content }: { content: string }) {
+  return (
+    <div className="text-sm leading-[1.75] wrap-break-word whitespace-pre-wrap text-foreground/95">
+      {content}
+    </div>
+  )
 }
 
 /* ── Action buttons ───────────────────────────────────────────── */
@@ -192,6 +223,7 @@ function MessageActions({
           <TooltipTrigger asChild>
             <button
               onClick={onRetry}
+              data-testid="chat-retry"
               className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-foreground/6 hover:text-foreground"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -250,6 +282,7 @@ export function AssistantFallback({
             className="rounded-full"
             onClick={onRetry}
             disabled={isRetrying}
+            data-testid="chat-retry"
           >
             {isRetrying ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -283,7 +316,48 @@ const STREAM_REVEAL_INTERVAL_MS = 30
 const STREAM_REVEAL_MIN_STEP = 1
 const STREAM_REVEAL_MAX_STEP = 6
 
-export function ChatMessage({
+function areAttachmentsEqual(
+  previous: ChatMessageAttachment[],
+  next: ChatMessageAttachment[]
+) {
+  if (previous === next) return true
+  if (previous.length !== next.length) return false
+
+  for (let index = 0; index < previous.length; index += 1) {
+    const prevAttachment = previous[index]
+    const nextAttachment = next[index]
+
+    if (
+      !prevAttachment ||
+      !nextAttachment ||
+      prevAttachment.id !== nextAttachment.id ||
+      prevAttachment.filename !== nextAttachment.filename ||
+      prevAttachment.mediaType !== nextAttachment.mediaType ||
+      prevAttachment.url !== nextAttachment.url
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function areChatMessagePropsEqual(previous: Props, next: Props) {
+  return (
+    previous.messageId === next.messageId &&
+    previous.role === next.role &&
+    previous.content === next.content &&
+    previous.reasoningContent === next.reasoningContent &&
+    previous.reasoningEnabled === next.reasoningEnabled &&
+    previous.isStreaming === next.isStreaming &&
+    previous.revealOnMount === next.revealOnMount &&
+    Boolean(previous.onRetry) === Boolean(next.onRetry) &&
+    Boolean(previous.onUserEdit) === Boolean(next.onUserEdit) &&
+    areAttachmentsEqual(previous.attachments ?? [], next.attachments ?? [])
+  )
+}
+
+function ChatMessageComponent({
   messageId,
   role,
   content,
@@ -408,7 +482,11 @@ export function ChatMessage({
     }
 
     return (
-      <div className="group/message flex justify-end">
+      <div
+        className="group/message flex justify-end"
+        data-testid="chat-message-user"
+        data-message-id={messageId}
+      >
         <div className="flex w-full max-w-[85%] flex-col items-end">
           {attachments.length > 0 && (
             <Attachments variant="inline" className="mb-2 justify-end">
@@ -464,7 +542,7 @@ export function ChatMessage({
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl rounded-br-sm bg-foreground/8 px-4 py-2.5 text-sm leading-relaxed">
+            <div className="rounded-2xl rounded-br-sm bg-foreground/12 px-4 py-2.5 text-sm leading-relaxed">
               {content}
             </div>
           )}
@@ -519,7 +597,11 @@ export function ChatMessage({
       return null
 
     return (
-      <div className="flex justify-start">
+      <div
+        className="flex justify-start"
+        data-testid="chat-message-assistant"
+        data-message-id={messageId}
+      >
         <div className="max-w-[85%]">
           {(reasoningEnabled || hasReasoning) && (
             <ChainOfThought open className="mb-3 max-w-none">
@@ -528,14 +610,10 @@ export function ChatMessage({
               </ChainOfThoughtHeader>
               <ChainOfThoughtContent>
                 {hasReasoning ? (
-                  <div className="text-xs leading-relaxed text-muted-foreground">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={mdComponents}
-                    >
-                      {reasoningContent!}
-                    </ReactMarkdown>
-                  </div>
+                  <MarkdownContent
+                    content={reasoningContent!}
+                    className="text-xs leading-relaxed text-muted-foreground"
+                  />
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     Gathering reasoning traces...
@@ -550,25 +628,18 @@ export function ChatMessage({
               initial={
                 reduceMotion
                   ? { opacity: 1 }
-                  : { opacity: 0, y: 4, filter: "blur(4px)" }
+                  : { opacity: 0, y: 6, scale: 0.995 }
               }
               animate={
-                reduceMotion
-                  ? { opacity: 1 }
-                  : { opacity: 1, y: 0, filter: "blur(0px)" }
+                reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }
               }
               transition={{
                 duration: reduceMotion ? 0 : 0.28,
                 ease: [0.25, 1, 0.5, 1],
               }}
             >
-              <div className="prose-chat text-sm leading-[1.75]">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={mdComponents}
-                >
-                  {liveContent}
-                </ReactMarkdown>
+              <div className="prose-chat">
+                <StreamingTextContent content={liveContent} />
               </div>
               <motion.span
                 aria-hidden
@@ -605,18 +676,18 @@ export function ChatMessage({
   return (
     <motion.div
       className="group/message flex justify-start"
+      data-testid="chat-message-assistant"
+      data-message-id={messageId}
       initial={
-        reduceMotion || streamedOnceRef.current
-          ? { opacity: 1 }
-          : { opacity: 0, y: 10, filter: "blur(8px)", scale: 0.995 }
-      }
-      animate={
         reduceMotion
           ? { opacity: 1 }
-          : { opacity: 1, y: 0, filter: "blur(0px)", scale: 1 }
+          : streamedOnceRef.current
+            ? { opacity: 0.9, y: 4, scale: 0.998 }
+            : { opacity: 0, y: 12, scale: 0.992 }
       }
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
       transition={{
-        duration: reduceMotion ? 0 : 0.32,
+        duration: reduceMotion ? 0 : streamedOnceRef.current ? 0.22 : 0.32,
         ease: [0.22, 1, 0.36, 1],
       }}
     >
@@ -630,14 +701,10 @@ export function ChatMessage({
             </ChainOfThoughtHeader>
             <ChainOfThoughtContent>
               {reasoningContent?.trim() && (
-                <div className="text-xs leading-relaxed text-muted-foreground">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={mdComponents}
-                  >
-                    {reasoningContent}
-                  </ReactMarkdown>
-                </div>
+                <MarkdownContent
+                  content={reasoningContent}
+                  className="text-xs leading-relaxed text-muted-foreground"
+                />
               )}
               {!reasoningContent?.trim() && reasoningEnabled && (
                 <p className="text-xs text-muted-foreground">
@@ -648,16 +715,17 @@ export function ChatMessage({
             </ChainOfThoughtContent>
           </ChainOfThought>
         )}
-        <div className="prose-chat text-sm leading-[1.75]">
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-            {content}
-          </ReactMarkdown>
-        </div>
+        <MarkdownContent
+          content={content}
+          className="prose-chat text-sm leading-[1.75]"
+        />
         {content && <MessageActions content={content} onRetry={onRetry} />}
       </div>
     </motion.div>
   )
 }
+
+export const ChatMessage = memo(ChatMessageComponent, areChatMessagePropsEqual)
 
 /* ── Shimmer thinking indicator ──────────────────────────────── */
 
@@ -694,9 +762,9 @@ export function ThinkingIndicator({
       <AnimatePresence mode="wait">
         <motion.div
           key={idx}
-          initial={{ opacity: 0, y: 6, filter: "blur(4px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: -6, filter: "blur(4px)" }}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.35, ease: "easeInOut" }}
         >
           <ShimmeringText

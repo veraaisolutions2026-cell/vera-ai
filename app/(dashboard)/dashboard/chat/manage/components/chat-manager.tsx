@@ -169,7 +169,7 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
                   <p className="truncate text-sm leading-snug font-medium">
                     {chat.title}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground/50">
+                  <p className="mt-0.5 text-xs text-muted-foreground/50">
                     {formatDistanceToNow(new Date(chat.updated_at), {
                       addSuffix: true,
                     })}

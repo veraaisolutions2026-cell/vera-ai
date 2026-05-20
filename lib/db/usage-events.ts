@@ -14,6 +14,7 @@ type RecordUsageEventInput = {
   requestTrigger?: string | null
   userMessageChars?: number
   assistantMessageChars?: number
+  metadata?: Json
 }
 
 export async function recordUsageEvent({
@@ -26,6 +27,7 @@ export async function recordUsageEvent({
   requestTrigger = null,
   userMessageChars = 0,
   assistantMessageChars = 0,
+  metadata,
 }: RecordUsageEventInput): Promise<void> {
   const service = createServiceClient()
 
@@ -52,6 +54,7 @@ export async function recordUsageEvent({
       request_count: 1,
       user_message_chars: userMessageChars,
       assistant_message_chars: assistantMessageChars,
+      ...(metadata !== undefined ? { metadata } : {}),
     },
     { onConflict: "event_key" }
   )

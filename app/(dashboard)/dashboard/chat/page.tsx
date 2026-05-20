@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { getAllAgentsForUser } from "@/lib/db/agents"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
+import { isAnswerPreference } from "@/lib/answer-preference"
 import { ChatNewPage } from "./components/chat-new-page"
 
 export default async function NewChatPage() {
@@ -15,7 +16,11 @@ export default async function NewChatPage() {
   }
 
   const [profileResult, layerAccess] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    supabase
+      .from("profiles")
+      .select("full_name, answer_preference")
+      .eq("id", user.id)
+      .single(),
     getUserLayerAccess(user.id),
   ])
 
@@ -32,5 +37,15 @@ export default async function NewChatPage() {
   const userName =
     profileResult.data?.full_name ?? user.email?.split("@")[0] ?? "User"
 
-  return <ChatNewPage userName={userName} agents={filteredAgents} />
+  return (
+    <ChatNewPage
+      userName={userName}
+      agents={filteredAgents}
+      initialAnswerPreference={
+        isAnswerPreference(profileResult.data?.answer_preference)
+          ? profileResult.data.answer_preference
+          : null
+      }
+    />
+  )
 }

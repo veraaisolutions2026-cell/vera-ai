@@ -129,12 +129,12 @@ export function AgentLinkingPanelClient({
         <div className="mb-3 flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-medium">{agent.name}</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {selectedFileIds.size} linked file
               {selectedFileIds.size === 1 ? "" : "s"}
             </p>
           </div>
-          <span className="rounded-full border border-border/70 px-2 py-0.5 text-[10px] text-muted-foreground uppercase">
+          <span className="rounded-full border border-border/70 px-2 py-0.5 text-xs text-muted-foreground uppercase">
             built-in
           </span>
         </div>
@@ -228,7 +228,7 @@ export function AgentLinkingPanelClient({
               <h3 className="text-sm font-semibold tracking-tight">
                 {group.name}
               </h3>
-              <span className="rounded-full border border-border/70 px-2 py-0.5 text-[10px] text-muted-foreground uppercase">
+              <span className="rounded-full border border-border/70 px-2 py-0.5 text-xs text-muted-foreground uppercase">
                 {group.agents.length} agent
                 {group.agents.length === 1 ? "" : "s"}
               </span>
@@ -243,7 +243,7 @@ export function AgentLinkingPanelClient({
         <section className="space-y-3 rounded-2xl border border-border/50 bg-background/70 p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold tracking-tight">Unassigned</h3>
-            <span className="rounded-full border border-border/70 px-2 py-0.5 text-[10px] text-muted-foreground uppercase">
+            <span className="rounded-full border border-border/70 px-2 py-0.5 text-xs text-muted-foreground uppercase">
               {filteredUnassignedAgents.length} agent
               {filteredUnassignedAgents.length === 1 ? "" : "s"}
             </span>

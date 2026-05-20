@@ -94,7 +94,7 @@ export function BillingPage({ subscription, isAdminUnlimitedMode }: Props) {
               {v === "monthly" ? "Monthly" : "Annual"}
             </span>
             {v === "annual" && (
-              <span className="relative z-10 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-semibold text-foreground/70">
+              <span className="relative z-10 rounded-full bg-foreground/10 px-1.5 py-0.5 text-xs font-semibold text-foreground/70">
                 −20%
               </span>
             )}
@@ -121,7 +121,7 @@ export function BillingPage({ subscription, isAdminUnlimitedMode }: Props) {
             >
               {plan.highlighted && (
                 <div className="absolute -top-px left-1/2 -translate-x-1/2">
-                  <div className="rounded-b-full bg-amber-500 px-3 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
+                  <div className="rounded-b-full bg-amber-500 px-3 py-0.5 text-xs font-semibold tracking-wide text-white uppercase">
                     Popular
                   </div>
                 </div>
@@ -141,7 +141,7 @@ export function BillingPage({ subscription, isAdminUnlimitedMode }: Props) {
                 </div>
                 <span className="text-sm font-semibold">{plan.name}</span>
                 {isCurrent && (
-                  <span className="ml-auto rounded-full bg-foreground/10 px-2 py-0.5 text-[10px] font-medium text-foreground/70 ring-1 ring-foreground/10">
+                  <span className="ml-auto rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-medium text-foreground/70 ring-1 ring-foreground/10">
                     {isAdminUnlimitedMode ? "Unlimited" : "Active"}
                   </span>
                 )}
@@ -173,7 +173,7 @@ export function BillingPage({ subscription, isAdminUnlimitedMode }: Props) {
                       /month
                     </span>
                     {interval === "annual" && (
-                      <span className="ml-1 text-[11px] text-muted-foreground/60 line-through">
+                      <span className="ml-1 text-xs text-muted-foreground/60 line-through">
                         ${plan.price.monthly}
                       </span>
                     )}

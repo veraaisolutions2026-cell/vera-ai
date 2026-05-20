@@ -49,6 +49,10 @@ type NavItem = {
 }
 type NavGroup = { key: string; label: string | null; items: NavItem[] }
 
+const ADMIN_SECTION_TOGGLE_EASE: [number, number, number, number] = [
+  0.22, 1, 0.36, 1,
+]
+
 // Flat list kept for collapsed sidebar icon view
 const navItems: NavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
@@ -238,7 +242,7 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
                     className="h-7 w-7 shrink-0 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[11px] font-semibold">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold">
                     {initials}
                   </div>
                 )}
@@ -257,7 +261,7 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
       <div className="flex h-14 shrink-0 items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <VeraLogo width={74} height={20} />
-          <span className="border-l border-border/60 pl-3 text-[10px] font-medium tracking-widest text-muted-foreground/60 uppercase">
+          <span className="border-l border-border/60 pl-3 text-xs font-medium tracking-widest text-muted-foreground/60 uppercase">
             Admin
           </span>
         </div>
@@ -305,14 +309,17 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
             <div key={group.key} className="mb-1">
               <button
                 onClick={() => toggleGroup(group.key)}
-                className="flex w-full items-center justify-between rounded-full px-3 py-1.5 text-xs font-semibold tracking-widest text-muted-foreground/50 uppercase transition-colors hover:bg-foreground/6 hover:text-muted-foreground"
+                className="group flex w-full items-center justify-between px-3 py-1 text-xs font-semibold text-muted-foreground/60 transition-colors hover:text-foreground/80"
               >
                 <span>{group.label}</span>
                 <motion.div
                   animate={{ rotate: isOpen ? 0 : -90 }}
-                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                  transition={{
+                    duration: 0.2,
+                    ease: ADMIN_SECTION_TOGGLE_EASE,
+                  }}
                 >
-                  <ChevronDown className="h-3 w-3" />
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground/60 transition-colors group-hover:text-foreground/75" />
                 </motion.div>
               </button>
               <AnimatePresence initial={false}>
@@ -364,7 +371,7 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
                   className="h-7 w-7 shrink-0 rounded-full object-cover"
                 />
               ) : (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[11px] font-semibold">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-xs font-semibold">
                   {initials}
                 </div>
               )}
@@ -372,7 +379,7 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
                 <p className="truncate text-sm leading-none font-medium">
                   {user.name}
                 </p>
-                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   Admin
                 </p>
               </div>

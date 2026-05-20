@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
+import { useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Eye, EyeOff, Check, X } from "lucide-react"
 import {
@@ -146,7 +147,7 @@ function PasswordStrength({ password }: { password: string }) {
         {score > 0 && (
           <span
             className={cn(
-              "text-[11px] font-medium tabular-nums",
+              "text-xs font-medium tabular-nums",
               STRENGTH_TEXT[score]
             )}
           >
@@ -176,7 +177,7 @@ function PasswordStrength({ password }: { password: string }) {
               </span>
               <span
                 className={cn(
-                  "text-[11px] transition-colors duration-200",
+                  "text-xs transition-colors duration-200",
                   passed ? "text-foreground/70" : "text-muted-foreground/50"
                 )}
               >
@@ -204,7 +205,7 @@ function ConfirmMatch({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={cn(
-        "flex items-center gap-1 text-[11px]",
+        "flex items-center gap-1 text-xs",
         match ? "text-emerald-500" : "text-destructive"
       )}
     >
@@ -221,7 +222,10 @@ function ConfirmMatch({
 /* ── Main component ──────────────────────────────────────── */
 
 export function RegisterForm() {
-  const [showEmail, setShowEmail] = useState(false)
+  const searchParams = useSearchParams()
+  const [showEmail, setShowEmail] = useState(
+    () => searchParams.get("email") === "1"
+  )
   const [showPw, setShowPw] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [password, setPassword] = useState("")
@@ -261,6 +265,12 @@ export function RegisterForm() {
           <form action={signInWithGoogle}>
             <GoogleSubmitButton />
           </form>
+
+          <div className="flex items-center gap-3 py-0.5">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">or</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
 
           <button
             type="button"

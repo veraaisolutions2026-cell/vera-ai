@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 import { ThemeProvider } from "@/components/theme-provider"
 import { NavigationLoader } from "@/components/navigation-loader"
 import { Toaster } from "@/components/toaster"
+import { SmoothScrollProvider } from "@/components/smooth-scroll-provider"
 import { cn } from "@/lib/utils"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
@@ -37,6 +38,7 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
+          <SmoothScrollProvider />
           {children}
           <NavigationLoader />
           <Toaster />

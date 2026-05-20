@@ -1,0 +1,2 @@
+Vera AI Playwright DOCX attachment smoke fixture.
+This file exists so the automated suite can validate DOCX upload and resume behavior without manual setup.

@@ -1,14 +1,20 @@
 import { revalidatePath } from "next/cache"
-import { anthropic } from "@ai-sdk/anthropic"
 import { devToolsMiddleware } from "@ai-sdk/devtools"
 import {
+  consumeStream,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  stepCountIs,
   streamText,
   wrapLanguageModel,
   type UIMessage,
 } from "ai"
+import { resolveAnthropicProviderContext } from "@/lib/ai-provider"
+import {
+  buildAIUsageMetadata,
+  createAIRequestTimingTracker,
+} from "@/lib/ai-observability"
 import {
   CHAT_ATTACHMENTS_BUCKET,
   getVeraAttachmentMetadata,
@@ -19,11 +25,19 @@ import { createClient } from "@/lib/supabase/server"
 import { getAgent } from "@/lib/db/agents"
 import { getChat } from "@/lib/db/chats"
 import { createMessage } from "@/lib/db/messages"
-import { resolveModelId, supportsReasoningForModel } from "@/lib/models"
+import {
+  normalizeModelId,
+  resolveGatewayModelId,
+  resolveModelId,
+  supportsReasoningForModel,
+} from "@/lib/models"
 import { createServiceClient } from "@/lib/supabase/service"
 import { recordUsageEvent } from "@/lib/db/usage-events"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { getUsageAvailability } from "@/lib/db/usage-limits"
+import { buildChatMemoryPromptContext } from "@/lib/chat-memory-context"
+import { temporaryChatStateSchema } from "@/lib/memory-contract"
+import { createMemoryToolSet } from "@/lib/memory-service"
 import type { Json } from "@/types/supabase"
 
 export const maxDuration = 60
@@ -58,14 +72,12 @@ type ChatRequestBody = {
   messageId?: string
   answerPreference?: "short" | "long"
   selectedAgentId?: string | null
+  isTemporaryChat?: boolean
 }
 
 function getAnswerPreferencePrompt(
-  answerPreference: "short" | "long" | undefined,
-  hasSelectedAgent: boolean
+  answerPreference: "short" | "long" | undefined
 ): string {
-  if (hasSelectedAgent) return ""
-
   if (answerPreference === "short") {
     return "\n\nRESPONSE STYLE: User asked for a short answer. Keep it concise and direct. Prefer short paragraphs and compact bullet points only when they improve clarity."
   }
@@ -211,39 +223,46 @@ async function prepareMessagesForModel(
     messages.map(async (message) => {
       if (message.role !== "user") return message
 
-      const preparedParts: UIMessage["parts"] = []
+      const preparedParts = (
+        await Promise.all(
+          message.parts.map(async (part): Promise<UIMessage["parts"]> => {
+            if (part.type !== "file") {
+              return [part]
+            }
 
-      for (const part of message.parts) {
-        if (part.type !== "file") {
-          preparedParts.push(part)
-          continue
-        }
+            const metadata = getVeraAttachmentMetadata(
+              part as PersistedFilePart
+            )
+            if (!metadata) {
+              return [part]
+            }
 
-        const metadata = getVeraAttachmentMetadata(part as PersistedFilePart)
-        if (!metadata) {
-          preparedParts.push(part)
-          continue
-        }
+            if (metadata.attachmentType === "docx") {
+              if (!metadata.extractedText?.trim()) {
+                return []
+              }
 
-        if (metadata.attachmentType === "docx") {
-          if (metadata.extractedText?.trim()) {
-            preparedParts.push({
-              type: "text",
-              text: `Attached document \"${part.filename ?? "document"}\" extracted text:\n\n${metadata.extractedText}`,
-            })
-          }
-          continue
-        }
+              return [
+                {
+                  type: "text",
+                  text: `Attached document \"${part.filename ?? "document"}\" extracted text:\n\n${metadata.extractedText}`,
+                },
+              ]
+            }
 
-        const { data } = await storageClient.storage
-          .from(metadata.bucket ?? CHAT_ATTACHMENTS_BUCKET)
-          .createSignedUrl(metadata.storagePath, 60 * 60)
+            const { data } = await storageClient.storage
+              .from(metadata.bucket ?? CHAT_ATTACHMENTS_BUCKET)
+              .createSignedUrl(metadata.storagePath, 60 * 60)
 
-        preparedParts.push({
-          ...part,
-          url: data?.signedUrl ?? part.url,
-        })
-      }
+            return [
+              {
+                ...part,
+                url: data?.signedUrl ?? part.url,
+              },
+            ]
+          })
+        )
+      ).flat()
 
       return { ...message, parts: preparedParts }
     })
@@ -275,33 +294,37 @@ async function buildAgentKnowledgeBaseFileParts(
     return []
   }
 
-  const parts: UIMessage["parts"] = []
+  const parts = await Promise.all(
+    filesResult.data.map(
+      async (file): Promise<UIMessage["parts"][number] | null> => {
+        const signed = await storageClient.storage
+          .from(file.bucket)
+          .createSignedUrl(file.storage_path, 60 * 60)
 
-  for (const file of filesResult.data) {
-    const signed = await storageClient.storage
-      .from(file.bucket)
-      .createSignedUrl(file.storage_path, 60 * 60)
+        if (!signed.data?.signedUrl) return null
 
-    if (!signed.data?.signedUrl) continue
+        return {
+          type: "file",
+          filename: file.name,
+          mediaType: file.mime_type,
+          url: signed.data.signedUrl,
+          providerMetadata: {
+            vera: {
+              attachmentType: "pdf",
+              storagePath: file.storage_path,
+              bucket: file.bucket,
+              size: file.size_bytes,
+              source: "knowledge-base",
+            },
+          },
+        }
+      }
+    )
+  )
 
-    parts.push({
-      type: "file",
-      filename: file.name,
-      mediaType: file.mime_type,
-      url: signed.data.signedUrl,
-      providerMetadata: {
-        vera: {
-          attachmentType: "pdf",
-          storagePath: file.storage_path,
-          bucket: file.bucket,
-          size: file.size_bytes,
-          source: "knowledge-base",
-        },
-      },
-    })
-  }
-
-  return parts
+  return parts.filter(
+    (part): part is UIMessage["parts"][number] => part !== null
+  )
 }
 
 function appendPartsToLastUserMessage(
@@ -408,6 +431,10 @@ export async function POST(
   if (!requestMessages.length) {
     return createEmptyTurnResponse("empty-messages")
   }
+
+  const isTemporaryChat = temporaryChatStateSchema.parse({
+    isTemporaryChat: body.isTemporaryChat,
+  }).isTemporaryChat
 
   const lastUserTurn = getLastUserTurn(requestMessages)
   const lastUserMessage = getLastUserMessage(requestMessages)
@@ -552,10 +579,11 @@ export async function POST(
     }
   }
 
-  let pairPersistenceUnavailable = false
+  let pairPersistenceUnavailable = isTemporaryChat
+  let existingPair: { assistant_content: string } | null = null
 
-  const { data: existingPair, error: existingPairError } =
-    await bookkeepingSupabase
+  if (!pairPersistenceUnavailable) {
+    const { data, error: existingPairError } = await bookkeepingSupabase
       .from("chat_turn_pairs")
       .select("assistant_content")
       .eq("chat_id", chat.id)
@@ -563,8 +591,11 @@ export async function POST(
       .eq("turn_key", resolvedTurnKey)
       .maybeSingle()
 
-  if (existingPairError) {
-    pairPersistenceUnavailable = true
+    existingPair = data
+
+    if (existingPairError) {
+      pairPersistenceUnavailable = true
+    }
   }
 
   if (
@@ -709,17 +740,16 @@ export async function POST(
     }
   }
 
-  const answerPreferencePrompt = getAnswerPreferencePrompt(
-    body.answerPreference,
-    Boolean(selectedAgent)
-  )
-  const systemPrompt =
-    (selectedAgent?.system_prompt ?? DEFAULT_SYSTEM_PROMPT) +
-    NO_EMOJI_SUFFIX +
-    answerPreferencePrompt
+  const canonicalModelId = normalizeModelId(chat.model)
   const resolvedModelId = resolveModelId(chat.model)
+  const gatewayModelId = resolveGatewayModelId(chat.model)
   const reasoningEnabledForModel = supportsReasoningForModel(resolvedModelId)
   const usageEventKey = crypto.randomUUID()
+  const providerContext = resolveAnthropicProviderContext({
+    directModelId: resolvedModelId,
+    gatewayModelId,
+  })
+  const timingTracker = createAIRequestTimingTracker()
 
   let modelInputMessages = generationMessages
 
@@ -734,19 +764,45 @@ export async function POST(
     )
   }
 
+  const answerPreferencePrompt = getAnswerPreferencePrompt(
+    body.answerPreference
+  )
+  const memoryPromptContext = await buildChatMemoryPromptContext({
+    userId,
+    chatId: chat.id,
+    latestUserText: effectiveLastUserText,
+    isTemporaryChat,
+  })
+  const systemPrompt =
+    (selectedAgent?.system_prompt ?? DEFAULT_SYSTEM_PROMPT) +
+    memoryPromptContext.systemPrompt +
+    NO_EMOJI_SUFFIX +
+    answerPreferencePrompt
+  const memoryTools = createMemoryToolSet({
+    userId,
+    isTemporaryChat,
+    sourceChatId: chat.id,
+  })
+
   const result = streamText({
     // Anthropic can return transient overload responses; retry to keep UX stable.
     maxRetries: 4,
+    abortSignal: req.signal,
     model: AI_DEVTOOLS_ENABLED
       ? wrapLanguageModel({
-          model: anthropic(resolvedModelId),
+          model: providerContext.languageModel,
           middleware: devToolsMiddleware(),
         })
-      : anthropic(resolvedModelId),
+      : providerContext.languageModel,
     system: systemPrompt,
+    stopWhen: stepCountIs(4),
+    tools: memoryTools,
     messages: await convertToModelMessages(
       await prepareMessagesForModel(modelInputMessages, bookkeepingSupabase)
     ),
+    onChunk: ({ chunk }) => {
+      timingTracker.observeChunk(chunk.type)
+    },
     providerOptions: reasoningEnabledForModel
       ? {
           anthropic: {
@@ -759,16 +815,29 @@ export async function POST(
   return result.toUIMessageStreamResponse({
     originalMessages: generationMessages,
     headers: STREAM_RESPONSE_HEADERS,
-    onFinish: async ({ messages }) => {
+    consumeSseStream: consumeStream,
+    onFinish: async ({ messages, isAborted }) => {
+      const timing = timingTracker.snapshot()
       const lastUserText =
         effectiveLastUserText || getLastUserText(generationMessages)
       const assistantMessages = messages
         .filter((m) => isChatRole(m.role) && m.role === "assistant")
         .map((m) => getTextFromParts(m.parts).trim())
         .filter(Boolean)
-      const lastAssistantText =
-        assistantMessages[assistantMessages.length - 1] ?? ""
+      const lastAssistantText = isAborted
+        ? ""
+        : (assistantMessages[assistantMessages.length - 1] ?? "")
       let usageRecorded = false
+      const usageMetadata = buildAIUsageMetadata({
+        configuredProviderMode: providerContext.configuredProviderMode,
+        resolvedProviderMode: providerContext.resolvedProviderMode,
+        availability: providerContext.availability,
+        inputModelId: chat.model ?? null,
+        canonicalModelId,
+        directModelId: resolvedModelId,
+        gatewayModelId,
+        timing,
+      })
 
       const recordUsageIfNeeded = async () => {
         if (usageRecorded || !lastAssistantText) return
@@ -783,6 +852,7 @@ export async function POST(
           requestTrigger,
           userMessageChars: lastUserText.length,
           assistantMessageChars: lastAssistantText.length,
+          metadata: usageMetadata,
         })
 
         usageRecorded = true

@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import Link from "next/link"
 import { AuthHeader } from "@/app/(auth)/components/auth-header"
 import { RegisterForm } from "./components/register-form"
@@ -6,7 +7,9 @@ export default function RegisterPage() {
   return (
     <div className="flex w-full max-w-sm flex-col gap-8 px-4">
       <AuthHeader title="Create your account" />
-      <RegisterForm />
+      <Suspense>
+        <RegisterForm />
+      </Suspense>
       <div className="flex flex-col items-center gap-2">
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}

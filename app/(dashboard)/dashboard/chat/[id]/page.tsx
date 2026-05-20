@@ -6,6 +6,7 @@ import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { parseStoredMessageParts } from "@/lib/chat-attachments"
 import { getChat } from "@/lib/db/chats"
 import { getMessages } from "@/lib/db/messages"
+import { isAnswerPreference } from "@/lib/answer-preference"
 import { ChatSession } from "../components/chat-session"
 
 export default async function ChatSessionPage({
@@ -35,7 +36,11 @@ export default async function ChatSessionPage({
 
   const [messages, profileResult, layerAccess] = await Promise.all([
     getMessages(chat.id, user.id),
-    supabase.from("profiles").select("full_name").eq("id", user.id).single(),
+    supabase
+      .from("profiles")
+      .select("full_name, answer_preference")
+      .eq("id", user.id)
+      .single(),
     getUserLayerAccess(user.id),
   ])
 
@@ -89,7 +94,9 @@ export default async function ChatSessionPage({
   const initialAnswerPreference =
     answerPreference === "short" || answerPreference === "long"
       ? answerPreference
-      : null
+      : isAnswerPreference(profileResult.data?.answer_preference)
+        ? profileResult.data.answer_preference
+        : null
 
   return (
     <ChatSession
@@ -103,9 +110,7 @@ export default async function ChatSessionPage({
         hasPendingAttachmentParts ? undefined : pendingFirstMessage
       }
       selectedAgent={activeAgent}
-      initialAnswerPreference={
-        activeAgent ? null : (initialAnswerPreference ?? null)
-      }
+      initialAnswerPreference={initialAnswerPreference ?? null}
     />
   )
 }

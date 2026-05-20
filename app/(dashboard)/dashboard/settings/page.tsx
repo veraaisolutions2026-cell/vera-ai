@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ProfileSettings } from "./components/profile-settings"
+import { AnswerPreferenceSettings } from "./components/answer-preference-settings"
 import { SecuritySettings } from "./components/security-settings"
 import { AppearanceSettings } from "./components/appearance-settings"
 import { DangerZone } from "./components/danger-zone"
 import type { UserData } from "@/types/database"
+import { isAnswerPreference } from "@/lib/answer-preference"
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -16,7 +18,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, avatar_url, role")
+    .select("full_name, avatar_url, role, answer_preference")
     .eq("id", user.id)
     .single()
 
@@ -51,6 +53,13 @@ export default async function SettingsPage() {
       </div>
       <div className="flex flex-col gap-4">
         <ProfileSettings user={userData} />
+        <AnswerPreferenceSettings
+          initialAnswerPreference={
+            isAnswerPreference(profile?.answer_preference)
+              ? profile.answer_preference
+              : null
+          }
+        />
         <SecuritySettings provider={provider} />
         <AppearanceSettings />
         <DangerZone />

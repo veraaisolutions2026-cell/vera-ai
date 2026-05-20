@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { adminCreateAgent, getAllAgents } from "@/lib/db/admin"
+import {
+  adminCreateAgent,
+  adminDeleteAgents,
+  getAllAgents,
+} from "@/lib/db/admin"
+import { setAgentTabsForMany } from "@/lib/db/admin-agent-tabs"
 import { setBuiltinAgentLayers } from "@/lib/db/builtin-agent-layer-access"
+import { removeBuiltinAgentLayerMapping } from "@/lib/db/builtin-agent-layer-access"
 import { z } from "zod"
 
 const layerSchema = z.enum(["coach", "intelligence"])
@@ -16,6 +22,10 @@ const agentSchema = z.object({
   is_builtin: z.boolean().optional().default(true),
   user_id: z.string().nullable().optional().default(null),
   layer_access: z.array(layerSchema).min(1).default(["coach", "intelligence"]),
+})
+
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
 })
 
 async function assertAdmin() {
@@ -77,4 +87,34 @@ export async function POST(request: Request) {
   await setBuiltinAgentLayers(agent.id, layerAccess)
 
   return NextResponse.json(agent, { status: 201 })
+}
+
+export async function DELETE(request: Request) {
+  const admin = await assertAdmin()
+  if (!admin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const body: unknown = await request.json().catch(() => null)
+  const parsed = bulkDeleteSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message },
+      { status: 400 }
+    )
+  }
+
+  const ids = Array.from(new Set(parsed.data.ids))
+  const ok = await adminDeleteAgents(ids)
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Failed to delete agents" },
+      { status: 500 }
+    )
+  }
+
+  await setAgentTabsForMany(ids, [])
+  await Promise.all(ids.map((id) => removeBuiltinAgentLayerMapping(id)))
+
+  return new NextResponse(null, { status: 204 })
 }

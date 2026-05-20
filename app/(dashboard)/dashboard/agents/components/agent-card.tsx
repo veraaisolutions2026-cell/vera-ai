@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Pin, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   DropdownMenu,
@@ -31,9 +31,18 @@ import type { Agent } from "@/types/database"
 type Props = {
   agent: Agent
   editable?: boolean
+  isFavorite?: boolean
+  favoritePending?: boolean
+  onToggleFavorite?: (agentId: string) => void
 }
 
-export function AgentCard({ agent, editable = false }: Props) {
+export function AgentCard({
+  agent,
+  editable = false,
+  isFavorite = false,
+  favoritePending = false,
+  onToggleFavorite,
+}: Props) {
   const router = useRouter()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -61,59 +70,96 @@ export function AgentCard({ agent, editable = false }: Props) {
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-foreground/6">
-              <AgentIcon
-                name={agent.icon}
-                className="h-4.5 w-4.5 text-foreground/70"
-              />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm leading-tight font-medium">
-                {agent.name}
-              </p>
-              {agent.category && (
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {agent.category}
-                </p>
-              )}
-            </div>
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground/6">
+            <AgentIcon
+              name={agent.icon}
+              className="h-4.5 w-4.5 text-foreground/70"
+            />
           </div>
 
-          {editable ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
-                  aria-label="Agent options"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="bottom" align="end" className="w-36">
-                <DropdownMenuItem
-                  className="cursor-pointer gap-2 text-xs"
-                  onClick={() => router.push(`/dashboard/agents/${agent.id}`)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setDeleteOpen(true)}
-                  className="gap-2 text-xs text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <span className="shrink-0 rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-foreground/8">
-              Built-in
-            </span>
-          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="truncate text-sm leading-tight font-medium">
+                  {agent.name}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1">
+                {onToggleFavorite ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleFavorite(agent.id)}
+                    disabled={favoritePending}
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-[opacity,color,background-color] disabled:opacity-40",
+                      isFavorite
+                        ? "bg-foreground/8 text-foreground opacity-100"
+                        : "text-muted-foreground/70 hover:bg-foreground/6 hover:text-foreground md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                    )}
+                    aria-label={
+                      isFavorite ? `Unpin ${agent.name}` : `Pin ${agent.name}`
+                    }
+                  >
+                    <Pin className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+
+                {editable ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                        aria-label="Agent options"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      side="bottom"
+                      align="end"
+                      className="w-36"
+                    >
+                      <DropdownMenuItem
+                        className="cursor-pointer gap-2 text-xs"
+                        onClick={() =>
+                          router.push(`/dashboard/agents/${agent.id}`)
+                        }
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setDeleteOpen(true)}
+                        className="gap-2 text-xs text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </div>
+            </div>
+
+            {agent.category || !editable ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {agent.category ? (
+                  <p className="max-w-full truncate text-xs text-muted-foreground">
+                    {agent.category}
+                  </p>
+                ) : null}
+
+                {!editable ? (
+                  <span className="shrink-0 rounded-full bg-foreground/5 px-2 py-0.5 text-xs font-medium text-muted-foreground ring-1 ring-foreground/8">
+                    Built-in
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* Description */}
@@ -125,13 +171,13 @@ export function AgentCard({ agent, editable = false }: Props) {
 
         {/* Footer */}
         <div className="mt-auto flex items-center justify-between">
-          <span className="text-[10px] text-muted-foreground/60">
+          <span className="text-xs text-muted-foreground/60">
             {getModelLabel(agent.base_model)}
           </span>
           <div className="flex items-center gap-2">
             <Link
               href={`/dashboard/chat?agent=${encodeURIComponent(agent.id)}&fromAgentCard=1`}
-              className="inline-flex h-7 items-center rounded-full border border-border/60 px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
+              className="inline-flex h-7 items-center rounded-full border border-border/60 px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100"
             >
               Start Chat
             </Link>
@@ -139,7 +185,7 @@ export function AgentCard({ agent, editable = false }: Props) {
             {editable && (
               <Link
                 href={`/dashboard/agents/${agent.id}`}
-                className="text-[11px] text-muted-foreground underline-offset-2 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:underline"
+                className="text-xs text-muted-foreground underline-offset-2 opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground hover:underline"
               >
                 Edit
               </Link>

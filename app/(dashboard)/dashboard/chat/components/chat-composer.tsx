@@ -9,11 +9,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/animate-ui/components/radix/tooltip"
+import {
+  ANSWER_PREFERENCE_OPTIONS,
+  type AnswerPreference,
+} from "@/lib/answer-preference"
 import type { ChatAttachment } from "@/lib/chat-attachments"
 import { cn } from "@/lib/utils"
 import { getModelLabel } from "@/lib/models"
-import type { Agent } from "@/types/database"
-import { AgentSelector } from "./agent-selector"
 import { ModelSelector, type ModelId } from "./model-selector"
 
 const MAX_UPLOAD_BYTES = 40 * 1024 * 1024
@@ -27,7 +29,6 @@ function formatSize(bytes: number): string {
 }
 
 export type AttachedFile = ChatAttachment
-export type AnswerPreference = "short" | "long"
 
 type Props = {
   input: string
@@ -35,9 +36,6 @@ type Props = {
   onSubmit: () => void
   isLoading: boolean
   onStop?: () => void
-  agents: Agent[]
-  selectedAgent: Agent | null
-  onAgentChange: (agent: Agent | null) => void
   showAnswerPreferencePrompt?: boolean
   onAnswerPreferenceSelect?: (answerPreference: AnswerPreference) => void
   model: ModelId
@@ -55,9 +53,6 @@ export function ChatComposer({
   onSubmit,
   isLoading,
   onStop,
-  agents,
-  selectedAgent,
-  onAgentChange,
   showAnswerPreferencePrompt = false,
   onAnswerPreferenceSelect,
   model,
@@ -77,7 +72,7 @@ export function ChatComposer({
 
   const effectiveUploading = isUploading || localUploading
   const hasAttachmentStack = effectiveUploading || attachedFiles.length > 0
-  const isChoiceMode = showAnswerPreferencePrompt && !selectedAgent
+  const isChoiceMode = showAnswerPreferencePrompt
   const isSendActive =
     input.trim().length > 0 &&
     !isLoading &&
@@ -172,7 +167,10 @@ export function ChatComposer({
             <div className="px-3 pt-3 pb-1">
               <div className="flex flex-col gap-2">
                 {effectiveUploading && (
-                  <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 opacity-60">
+                  <div
+                    data-testid="chat-uploading-file"
+                    className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5 opacity-60"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -183,7 +181,7 @@ export function ChatComposer({
                             {uploadingName ?? "Uploading..."}
                           </p>
                         </div>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {typeof uploadingSize === "number"
                             ? formatSize(uploadingSize)
                             : "Processing document..."}
@@ -199,6 +197,7 @@ export function ChatComposer({
                 {attachedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${index}`}
+                    data-testid="chat-attached-file"
                     className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2.5"
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -211,7 +210,7 @@ export function ChatComposer({
                             {file.name}
                           </p>
                         </div>
-                        <p className="mt-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {file.type.toUpperCase()} • {formatSize(file.size)}
                         </p>
                       </div>
@@ -238,77 +237,73 @@ export function ChatComposer({
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               className="px-3 pt-3 pb-20"
             >
-              <div className="rounded-[1.45rem] border border-border/70 bg-background/88 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md">
-                <div className="flex items-start justify-between gap-4 px-1 pb-3">
+              <div className="rounded-[1.2rem] border border-border/70 bg-background/88 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md">
+                <div className="flex items-start justify-between gap-3 px-1 pb-2">
                   <div>
                     <p className="text-xs font-medium tracking-wide text-muted-foreground/80 uppercase">
                       Before Vera answers
                     </p>
-                    <h3 className="mt-1 text-sm font-medium tracking-normal text-foreground">
-                      How detailed should this reply be?
+                    <h3 className="mt-1 text-sm font-medium text-foreground">
+                      Set your default answer style once.
                     </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      We will remember it for future chats, and you can change
+                      it anytime in chat or Settings.
+                    </p>
                   </div>
-                  <span className="rounded-full border border-border/60 px-2.5 py-1 text-[10px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                    1 question
-                  </span>
                 </div>
 
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => onAnswerPreferenceSelect?.("short")}
-                    className="group flex w-full items-center gap-3 rounded-[1.2rem] border border-border/65 bg-card/75 px-3 py-3.5 text-left transition-all duration-150 hover:border-foreground/20 hover:bg-card hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_12px_24px_rgba(0,0,0,0.22)]"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
-                      1
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-foreground">
-                        Short answer
-                      </span>
-                      <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
-                        Quick, direct, and focused on the main point.
-                      </span>
-                    </span>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onAnswerPreferenceSelect?.("long")}
-                    className="group flex w-full items-center gap-3 rounded-[1.2rem] border border-border/65 bg-card/75 px-3 py-3.5 text-left transition-all duration-150 hover:border-foreground/20 hover:bg-card hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_12px_24px_rgba(0,0,0,0.22)]"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background">
-                      2
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-foreground">
-                        Long answer
-                      </span>
-                      <span className="mt-0.5 block text-sm leading-relaxed text-muted-foreground">
-                        More context, fuller reasoning, and practical detail.
-                      </span>
-                    </span>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
-                  </button>
+                <div
+                  data-testid="chat-answer-choice"
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {ANSWER_PREFERENCE_OPTIONS.map((option, index) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => onAnswerPreferenceSelect?.(option.value)}
+                      data-testid={
+                        option.value === "short"
+                          ? "chat-answer-short"
+                          : "chat-answer-long"
+                      }
+                      className="group rounded-[1rem] border border-border/65 bg-card/75 px-3 py-3 text-left transition-all duration-150 hover:border-foreground/20 hover:bg-card hover:shadow-[0_10px_22px_rgba(15,23,42,0.08)] dark:hover:shadow-[0_10px_22px_rgba(0,0,0,0.22)]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm font-medium text-foreground">
+                          {option.label}
+                        </span>
+                        <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {option.description}
+                      </p>
+                    </button>
+                  ))}
                 </div>
               </div>
             </motion.div>
           ) : (
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(event) => onInputChange(event.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask anything..."
-              disabled={disabled || showAnswerPreferencePrompt}
-              rows={1}
-              className={cn(
-                "w-full resize-none rounded-[1.75rem] bg-card/95 mask-[linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] px-4 pb-18 text-sm leading-relaxed [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
-                hasAttachmentStack ? "pt-2.5" : "pt-3.5"
-              )}
-              style={{ minHeight: "52px", maxHeight: "200px" }}
-            />
+            <>
+              <textarea
+                ref={textareaRef}
+                data-testid="chat-input"
+                value={input}
+                onChange={(event) => onInputChange(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask anything..."
+                disabled={disabled || showAnswerPreferencePrompt}
+                rows={1}
+                className={cn(
+                  "w-full resize-none rounded-[1.75rem] bg-card/95 mask-[linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] px-4 pb-18 text-sm leading-relaxed [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
+                  hasAttachmentStack ? "pt-3" : "pt-4"
+                )}
+                style={{ minHeight: "52px", maxHeight: "200px" }}
+              />
+            </>
           )}
 
           <div
@@ -324,6 +319,7 @@ export function ChatComposer({
                     <input
                       ref={fileInputRef}
                       type="file"
+                      data-testid="chat-attachment-input"
                       accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       className="hidden"
                       onChange={handleFileChange}
@@ -333,6 +329,7 @@ export function ChatComposer({
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
+                          data-testid="chat-attach-file"
                           disabled={
                             disabled ||
                             showAnswerPreferencePrompt ||
@@ -364,36 +361,15 @@ export function ChatComposer({
                 )}
 
                 {isClientReady ? (
-                  <>
-                    <AgentSelector
-                      agents={agents}
-                      selectedAgent={selectedAgent}
-                      onSelect={onAgentChange}
-                    />
-                    <ModelSelector value={model} onChange={onModelChange} />
-                  </>
+                  <ModelSelector value={model} onChange={onModelChange} />
                 ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled
-                      className={cn(
-                        "flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium opacity-60",
-                        selectedAgent
-                          ? "bg-foreground/10 text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {selectedAgent ? selectedAgent.name : "No agent"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground opacity-60"
-                    >
-                      {getModelLabel(model)}
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    disabled
+                    className="flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground opacity-60"
+                  >
+                    {getModelLabel(model)}
+                  </button>
                 )}
               </div>
 
@@ -401,6 +377,7 @@ export function ChatComposer({
                 <motion.button
                   type="button"
                   onClick={onStop}
+                  data-testid="chat-stop"
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
                   aria-label="Stop"
                   animate={{
@@ -423,6 +400,7 @@ export function ChatComposer({
                 <button
                   type="button"
                   onClick={requestSubmit}
+                  data-testid="chat-send"
                   disabled={
                     !canSubmit || isChoiceMode || (isLoading && !onStop)
                   }
@@ -477,7 +455,7 @@ export function ChatComposer({
           </div>
         </div>
 
-        <p className="mt-2 text-center text-[11px] text-muted-foreground/70">
+        <p className="mt-2 text-center text-xs text-muted-foreground/85">
           Press Enter to send. Press Ctrl+Enter (Windows/Linux) or Cmd+Enter
           (Mac) for a new line.
         </p>

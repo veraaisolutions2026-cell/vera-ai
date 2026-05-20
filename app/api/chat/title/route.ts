@@ -1,10 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk"
+import { generateText } from "ai"
 import { createClient } from "@/lib/supabase/server"
-import { resolveModelId } from "@/lib/models"
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+import { resolveGatewayModelId, resolveModelId } from "@/lib/models"
+import { resolveAnthropicLanguageModel } from "@/lib/ai-provider"
 
 export const maxDuration = 30
 
@@ -43,25 +40,22 @@ export async function POST(req: Request) {
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: resolveModelId("claude-haiku-4-5"),
-      max_tokens: 32,
-      system:
-        "Generate concise professional chat titles for audit workflows. Return only the title text. Do not use emojis, punctuation at end, quotes, or markdown.",
-      messages: [
-        {
-          role: "user",
-          content: `Create a short chat title (3-7 words) from this conversation context:\n\n${seed}`,
-        },
-      ],
+    const directModelId = resolveModelId("claude-haiku-4-5")
+    const gatewayModelId = resolveGatewayModelId("claude-haiku-4-5")
+    const languageModel = resolveAnthropicLanguageModel({
+      directModelId,
+      gatewayModelId,
     })
 
-    const raw = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join(" ")
+    const { text } = await generateText({
+      model: languageModel,
+      maxOutputTokens: 32,
+      system:
+        "Generate concise professional chat titles for audit workflows. Return only the title text. Do not use emojis, punctuation at end, quotes, or markdown.",
+      prompt: `Create a short chat title (3-7 words) from this conversation context:\n\n${seed}`,
+    })
 
-    const title = cleanTitle(raw)
+    const title = cleanTitle(text)
 
     if (chatId) {
       const chatLookup = supabase

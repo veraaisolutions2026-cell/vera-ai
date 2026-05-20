@@ -1,12 +1,9 @@
-import Anthropic from "@anthropic-ai/sdk"
+import { streamText } from "ai"
 import { createClient } from "@/lib/supabase/server"
 import { getAllAgentsForUser } from "@/lib/db/agents"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
-import { resolveModelId } from "@/lib/models"
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
+import { resolveGatewayModelId, resolveModelId } from "@/lib/models"
+import { resolveAnthropicLanguageModel } from "@/lib/ai-provider"
 
 export const maxDuration = 60
 
@@ -64,36 +61,23 @@ export async function POST(req: Request) {
     return new Response("Bad request", { status: 400 })
   }
 
-  const stream = anthropic.messages.stream({
-    model: resolveModelId(model),
-    max_tokens: 8192,
+  const directModelId = resolveModelId(model)
+  const gatewayModelId = resolveGatewayModelId(model)
+  const languageModel = resolveAnthropicLanguageModel({
+    directModelId,
+    gatewayModelId,
+  })
+
+  const result = streamText({
+    model: languageModel,
+    maxOutputTokens: 8192,
     system: NO_EMOJI_SYSTEM_PROMPT,
     messages,
+    abortSignal: req.signal,
   })
 
-  const readable = new ReadableStream({
-    async start(controller) {
-      const encoder = new TextEncoder()
-      try {
-        for await (const event of stream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text))
-          }
-        }
-      } catch (err) {
-        controller.error(err)
-      } finally {
-        controller.close()
-      }
-    },
-  })
-
-  return new Response(readable, {
+  return result.toTextStreamResponse({
     headers: {
-      "Content-Type": "text/plain; charset=utf-8",
       "X-Accel-Buffering": "no",
       "Cache-Control": "no-cache",
     },

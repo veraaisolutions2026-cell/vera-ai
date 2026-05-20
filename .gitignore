@@ -10,6 +10,9 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/.playwright/
 
 # next.js
 /.next/
@@ -23,6 +26,8 @@
 *.pem
 /docs
 milestone2.md
+/milestone 3.md
+/db
 
 # debug
 npm-debug.log*

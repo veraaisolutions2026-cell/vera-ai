@@ -18,6 +18,7 @@ import {
   type TaskStatus,
 } from "@/components/animate-ui/components/task"
 import { AGENT_ICONS } from "@/lib/agent-icons"
+import { getModelLabel as getBrandedModelLabel } from "@/lib/models"
 import { cn } from "@/lib/utils"
 
 /* ── Markdown ─────────────────────────────────────────────────── */
@@ -59,7 +60,7 @@ const mdComponents = {
       return (
         <div className="mb-2 overflow-hidden rounded-lg border border-border/50 bg-muted/50">
           <div className="border-b border-border/40 px-3 py-1.5">
-            <span className="font-mono text-[10px] tracking-wide text-muted-foreground/70 uppercase">
+            <span className="font-mono text-xs tracking-wide text-muted-foreground/70 uppercase">
               {match[1]}
             </span>
           </div>
@@ -165,10 +166,7 @@ function normalizeCreatePart(part: unknown): NormalizedCreatePart | null {
 }
 
 function getModelLabel(model?: string) {
-  if (!model) return "Claude Sonnet"
-  if (model.includes("opus")) return "Claude Opus"
-  if (model.includes("haiku")) return "Claude Haiku"
-  return "Claude Sonnet"
+  return getBrandedModelLabel(model)
 }
 
 /* ── Animated text ──────────────────────────────────────────────── */
@@ -345,7 +343,7 @@ function TraversMessage({
       .join("")
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-foreground/8 px-3.5 py-2.5 text-sm">
+        <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-foreground/12 px-3.5 py-2.5 text-sm">
           {text}
         </div>
       </div>
@@ -450,11 +448,11 @@ function TraversMessage({
                     title="Travers built this agent"
                     badge={
                       isDone && result?.success ? (
-                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 dark:text-emerald-400">
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500 dark:text-emerald-400">
                           Done
                         </span>
                       ) : isPending ? (
-                        <span className="rounded-full bg-foreground/6 px-2 py-0.5 text-[10px] text-muted-foreground">
+                        <span className="rounded-full bg-foreground/6 px-2 py-0.5 text-xs text-muted-foreground">
                           Building…
                         </span>
                       ) : null
@@ -536,7 +534,7 @@ function TraversMessage({
                     <IconComponent className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <button
                       onClick={() => onViewAgent(result.agent_id!)}
-                      className="flex items-center gap-1 rounded-lg border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-foreground/8"
+                      className="flex items-center gap-1 rounded-lg border border-border/60 bg-background/80 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-foreground/8"
                     >
                       View agent
                       <ChevronRight className="h-3 w-3" />
@@ -731,7 +729,7 @@ export function AdminTraversChat() {
             )}
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
+        <p className="mt-1.5 text-center text-xs text-muted-foreground/50">
           Travers will create the agent and save it to{" "}
           <button
             type="button"

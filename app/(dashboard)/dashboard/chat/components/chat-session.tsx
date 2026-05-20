@@ -7,11 +7,9 @@ import { DefaultChatTransport, type UIMessage } from "ai"
 import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
-import {
-  ChatComposer,
-  type AnswerPreference,
-  type AttachedFile,
-} from "./chat-composer"
+import { updateAnswerPreference } from "@/actions/settings-actions"
+import { ChatAgentBar } from "./chat-agent-bar"
+import { ChatComposer, type AttachedFile } from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
 import {
   ATTACHMENT_THINKING_PHRASES,
@@ -20,6 +18,7 @@ import {
   ThinkingIndicator,
 } from "./chat-message"
 import { ChatHeader } from "./chat-header"
+import type { AnswerPreference } from "@/lib/answer-preference"
 import type { PlanId } from "@/lib/billing-plans"
 import { supportsReasoningForModel } from "@/lib/models"
 import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
@@ -425,6 +424,8 @@ export function ChatSession({
   const [activeAgent, setActiveAgent] = useState<Agent | null>(selectedAgent)
   const [answerPreference, setAnswerPreference] =
     useState<AnswerPreference | null>(initialAnswerPreference)
+  const [savedAnswerPreference, setSavedAnswerPreference] =
+    useState<AnswerPreference | null>(initialAnswerPreference)
   const [isSubmitPending, setIsSubmitPending] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [pendingAnswerChoice, setPendingAnswerChoice] = useState<{
@@ -432,7 +433,7 @@ export function ChatSession({
     files: AttachedFile[]
     mode: "queued-message" | "resume-existing-turn"
   } | null>(() => {
-    if (!pendingFirstMessage || activeAgent || initialAnswerPreference) {
+    if (!pendingFirstMessage || initialAnswerPreference) {
       return null
     }
 
@@ -449,6 +450,8 @@ export function ChatSession({
     "I couldn't generate a response this time. You can retry now."
   )
   const bottomRef = useRef<HTMLDivElement>(null)
+  const streamScrollFrameRef = useRef<number | null>(null)
+  const lastStreamAutoScrollAtRef = useRef(0)
   const typingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestMessagesRef = useRef<UIMessage[]>([])
   const latestStatusRef = useRef<string>("ready")
@@ -462,7 +465,6 @@ export function ChatSession({
   const answerChoiceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   )
-  const clearAnswerPreferenceAfterSendRef = useRef(false)
   const seenMessageIdsRef = useRef<Set<string>>(new Set())
   const seenMessageIdsInitializedRef = useRef(false)
   const branchStorageHydratedRef = useRef(false)
@@ -482,12 +484,6 @@ export function ChatSession({
   useEffect(() => {
     latestAnswerPreferenceRef.current = answerPreference
   }, [answerPreference])
-
-  useEffect(() => {
-    if (activeAgent && pendingAnswerChoice) {
-      setPendingAnswerChoice(null)
-    }
-  }, [activeAgent, pendingAnswerChoice])
 
   const transport = useMemo(
     () =>
@@ -510,8 +506,7 @@ export function ChatSession({
                   ...parsed,
                   selectedAgentId: activeAgent?.id ?? null,
                   answerPreference:
-                    !activeAgent &&
-                    (preference === "short" || preference === "long")
+                    preference === "short" || preference === "long"
                       ? preference
                       : undefined,
                 }),
@@ -669,7 +664,7 @@ export function ChatSession({
     // without a chosen answer preference, hold the first request and ask for
     // the preference only after the routed chat session is on screen.
     if (pendingFirstMessage) {
-      if (!selectedAgent && !initialAnswerPreference) {
+      if (!initialAnswerPreference) {
         setPendingAnswerChoice({
           text: pendingFirstMessage,
           files: [],
@@ -679,9 +674,6 @@ export function ChatSession({
       }
 
       latestTurnStateRef.current = null
-      clearAnswerPreferenceAfterSendRef.current = Boolean(
-        initialAnswerPreference
-      )
 
       void sendMessage({ text: pendingFirstMessage }).catch((error) => {
         if (isOutOfUsageError(error)) {
@@ -707,9 +699,9 @@ export function ChatSession({
     const last = initialMessages[initialMessages.length - 1]
     if (!last || last.role !== "user") return
 
-    // For no-agent chats, preserve the same short/long preference gate even
-    // when the first unresolved turn includes uploaded attachments.
-    if (!selectedAgent && !initialAnswerPreference) {
+    // Preserve the same short/long preference gate even when the first
+    // unresolved turn includes uploaded attachments.
+    if (!initialAnswerPreference) {
       const pendingFiles: AttachedFile[] = last.parts.flatMap((part) => {
         if (part.type !== "file") return []
 
@@ -1009,11 +1001,42 @@ export function ChatSession({
   }, [])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [flatMessages, isStreaming])
+    if (!isStreaming) return
+
+    const now =
+      typeof performance !== "undefined" ? performance.now() : Date.now()
+
+    if (now - lastStreamAutoScrollAtRef.current < 96) {
+      return
+    }
+
+    lastStreamAutoScrollAtRef.current = now
+    streamScrollFrameRef.current = window.requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" })
+    })
+
+    return () => {
+      if (streamScrollFrameRef.current === null) return
+      window.cancelAnimationFrame(streamScrollFrameRef.current)
+      streamScrollFrameRef.current = null
+    }
+  }, [
+    flatMessages[flatMessages.length - 1]?.content.length,
+    flatMessages[flatMessages.length - 1]?.id,
+    isStreaming,
+  ])
+
+  useEffect(() => {
+    if (isStreaming) return
+
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }, [flatMessages.length, isStreaming])
 
   useEffect(() => {
     return () => {
+      if (streamScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(streamScrollFrameRef.current)
+      }
       if (answerChoiceTimerRef.current) {
         clearTimeout(answerChoiceTimerRef.current)
       }
@@ -1063,7 +1086,7 @@ export function ChatSession({
       )
         return
 
-      if (!activeAgent && !effectivePreference) {
+      if (!effectivePreference) {
         setPendingAnswerChoice({ text, files, mode: "queued-message" })
         setIsSubmitPending(true)
 
@@ -1079,7 +1102,23 @@ export function ChatSession({
 
       if (effectivePreference) {
         setAnswerPreference(effectivePreference)
-        clearAnswerPreferenceAfterSendRef.current = true
+
+        if (
+          overridePreference &&
+          savedAnswerPreference !== effectivePreference
+        ) {
+          const result = await updateAnswerPreference(effectivePreference)
+          if (result?.error) {
+            toast.error(
+              "Could not save your preference. We will use it for this chat only."
+            )
+          } else {
+            setSavedAnswerPreference(result.answerPreference)
+            toast.success(
+              "Preference saved. You can change it in chat or Settings."
+            )
+          }
+        }
       }
 
       setPendingAnswerChoice(null)
@@ -1137,7 +1176,7 @@ export function ChatSession({
       sendMessage,
       hideDeadState,
       isOutOfUsageError,
-      activeAgent,
+      savedAnswerPreference,
       showOutOfUsageToast,
       showDeadState,
     ]
@@ -1150,11 +1189,6 @@ export function ChatSession({
       status === "ready"
     ) {
       setIsSubmitPending(false)
-    }
-
-    if (status === "ready" && clearAnswerPreferenceAfterSendRef.current) {
-      clearAnswerPreferenceAfterSendRef.current = false
-      setAnswerPreference(null)
     }
   }, [status])
 
@@ -1341,6 +1375,17 @@ export function ChatSession({
     [router]
   )
 
+  const handleAgentChange = useCallback((agent: Agent | null) => {
+    setActiveAgent(agent)
+
+    if (agent) {
+      toast.success(`${agent.name} selected`)
+      return
+    }
+
+    toast.info("No agent selected")
+  }, [])
+
   function getGreeting() {
     const hour = new Date().getHours()
     if (hour < 5) return `Still up, ${firstName}?`
@@ -1397,6 +1442,16 @@ export function ChatSession({
             transition={{ duration: 0.22, ease: "easeInOut" }}
             style={{ pointerEvents: showWelcomeLayout ? "auto" : "none" }}
           >
+            <div className="pointer-events-auto absolute inset-x-0 top-0 z-10">
+              <div className="flex w-full px-4 pt-4 sm:px-6 lg:px-8">
+                <ChatAgentBar
+                  agents={agents}
+                  selectedAgent={activeAgent}
+                  onAgentChange={handleAgentChange}
+                />
+              </div>
+            </div>
+
             <div className="flex w-full flex-col items-center">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -1433,9 +1488,6 @@ export function ChatSession({
                 transition={{ duration: 0.22, delay: 0.06 }}
                 className="mt-6 w-full max-w-3xl px-4 sm:mt-10"
               >
-                <p className="mb-2.5 text-[11px] font-medium tracking-wide text-muted-foreground/50 uppercase">
-                  Get started with an example
-                </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {DEFAULT_PROMPTS.map((card) => {
                     const Icon = promptIcons[card.icon]
@@ -1484,8 +1536,18 @@ export function ChatSession({
                 messages={flatMessages}
               />
 
+              <div className="shrink-0">
+                <div className="flex w-full px-4 pt-3 sm:px-6">
+                  <ChatAgentBar
+                    agents={agents}
+                    selectedAgent={activeAgent}
+                    onAgentChange={handleAgentChange}
+                  />
+                </div>
+              </div>
+
               <div className="flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-3xl space-y-6 px-4 pt-8 pb-44">
+                <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 pb-44">
                   {flatMessages.map((message, index) => {
                     const pairedAssistantMessageId =
                       message.role === "user"
@@ -1599,22 +1661,8 @@ export function ChatSession({
                 onSubmit={() => void send()}
                 isLoading={isStreaming || isSubmitPending}
                 onStop={isStreaming ? () => void stop() : undefined}
-                agents={agents}
-                selectedAgent={activeAgent}
-                onAgentChange={(agent) => {
-                  setActiveAgent(agent)
-                  if (agent) {
-                    toast.success(`${agent.name} selected`)
-                    return
-                  }
-
-                  toast.info("No agent selected")
-                }}
                 showAnswerPreferencePrompt={Boolean(
-                  pendingAnswerChoice &&
-                  !isStreaming &&
-                  !isSubmitPending &&
-                  !activeAgent
+                  pendingAnswerChoice && !isStreaming && !isSubmitPending
                 )}
                 onAnswerPreferenceSelect={(preference) =>
                   void send(undefined, preference)

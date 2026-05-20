@@ -161,7 +161,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt, source }: Props) {
 
         {mode === "view" ? (
           currentPrompt ? (
-            <pre className="max-h-150 overflow-y-auto rounded-lg bg-muted/50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-foreground/80">
+            <pre className="max-h-150 overflow-y-auto rounded-lg bg-muted/50 px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground/80">
               {currentPrompt}
             </pre>
           ) : (
@@ -172,7 +172,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt, source }: Props) {
             </div>
           )
         ) : mode === "preview" ? (
-          <pre className="max-h-150 overflow-y-auto rounded-lg bg-muted/50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-foreground/80">
+          <pre className="max-h-150 overflow-y-auto rounded-lg bg-muted/50 px-4 py-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground/80">
             {previewPrompt}
           </pre>
         ) : (

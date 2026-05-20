@@ -8,16 +8,25 @@ import { RouteTransition } from "@/components/route-transition"
 import { cn } from "@/lib/utils"
 import type { LayerAccess } from "@/lib/db/layer-access"
 import { Sidebar } from "./sidebar"
-import type { Chat, UserData } from "@/types/database"
+import type { Agent, Chat, UserData } from "@/types/database"
 
 type Props = {
   user: UserData
   chats: Chat[]
+  agents: Agent[]
+  favoriteAgentIds: string[]
   layerAccess: LayerAccess
   children: React.ReactNode
 }
 
-export function DashboardShell({ user, chats, layerAccess, children }: Props) {
+export function DashboardShell({
+  user,
+  chats,
+  agents,
+  favoriteAgentIds,
+  layerAccess,
+  children,
+}: Props) {
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
@@ -60,9 +69,12 @@ export function DashboardShell({ user, chats, layerAccess, children }: Props) {
         <Sidebar
           user={user}
           chats={chats}
+          agents={agents}
+          favoriteAgentIds={favoriteAgentIds}
           layerAccess={layerAccess}
           onCollapse={() => setMobileSidebarOpen(false)}
           onExpand={() => setMobileSidebarOpen(true)}
+          onNavigate={() => setMobileSidebarOpen(false)}
           collapsed={false}
         />
       </div>
@@ -87,9 +99,12 @@ export function DashboardShell({ user, chats, layerAccess, children }: Props) {
             <Sidebar
               user={user}
               chats={chats}
+              agents={agents}
+              favoriteAgentIds={favoriteAgentIds}
               layerAccess={layerAccess}
               onCollapse={() => setDesktopSidebarOpen(false)}
               onExpand={() => setDesktopSidebarOpen(true)}
+              onNavigate={() => undefined}
               collapsed={!desktopSidebarOpen}
             />
           </motion.div>

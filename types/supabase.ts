@@ -334,28 +334,161 @@ export type Database = {
           },
         ]
       }
+      saved_memories: {
+        Row: {
+          archived_at: string | null
+          category: Database["public"]["Enums"]["memory_category"]
+          content: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          last_referenced_at: string | null
+          priority: Database["public"]["Enums"]["memory_priority"]
+          source: Database["public"]["Enums"]["memory_source"]
+          source_chat_id: string | null
+          status: Database["public"]["Enums"]["memory_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          category?: Database["public"]["Enums"]["memory_category"]
+          content: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          last_referenced_at?: string | null
+          priority?: Database["public"]["Enums"]["memory_priority"]
+          source?: Database["public"]["Enums"]["memory_source"]
+          source_chat_id?: string | null
+          status?: Database["public"]["Enums"]["memory_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          category?: Database["public"]["Enums"]["memory_category"]
+          content?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          last_referenced_at?: string | null
+          priority?: Database["public"]["Enums"]["memory_priority"]
+          source?: Database["public"]["Enums"]["memory_source"]
+          source_chat_id?: string | null
+          status?: Database["public"]["Enums"]["memory_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_memories_source_chat_id_fkey"
+            columns: ["source_chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_memories_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_memory_revisions: {
+        Row: {
+          action: Database["public"]["Enums"]["memory_revision_action"]
+          actor_user_id: string
+          created_at: string
+          id: number
+          memory_id: string | null
+          next_value: Json | null
+          previous_value: Json | null
+          user_id: string
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["memory_revision_action"]
+          actor_user_id: string
+          created_at?: string
+          id?: number
+          memory_id?: string | null
+          next_value?: Json | null
+          previous_value?: Json | null
+          user_id: string
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["memory_revision_action"]
+          actor_user_id?: string
+          created_at?: string
+          id?: number
+          memory_id?: string | null
+          next_value?: Json | null
+          previous_value?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_memory_revisions_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_memory_revisions_memory_id_fkey"
+            columns: ["memory_id"]
+            isOneToOne: false
+            referencedRelation: "saved_memories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_memory_revisions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
+          answer_preference: string | null
           avatar_url: string | null
           created_at: string
+          favorite_agent_ids: string[]
           full_name: string | null
           id: string
+          reference_chat_history: boolean
+          reference_saved_memories: boolean
           role: string
           updated_at: string
         }
         Insert: {
+          answer_preference?: string | null
           avatar_url?: string | null
           created_at?: string
+          favorite_agent_ids?: string[]
           full_name?: string | null
           id: string
+          reference_chat_history?: boolean
+          reference_saved_memories?: boolean
           role?: string
           updated_at?: string
         }
         Update: {
+          answer_preference?: string | null
           avatar_url?: string | null
           created_at?: string
+          favorite_agent_ids?: string[]
           full_name?: string | null
           id?: string
+          reference_chat_history?: boolean
+          reference_saved_memories?: boolean
           role?: string
           updated_at?: string
         }
@@ -497,6 +630,24 @@ export type Database = {
     Enums: {
       kb_file_link_status: "unlinked" | "linked-to-agent"
       kb_file_scope: "admin" | "user"
+      memory_category:
+        | "identity"
+        | "preference"
+        | "communication-style"
+        | "work-context"
+        | "project-context"
+        | "agent-preference"
+        | "constraint"
+        | "other"
+      memory_priority: "core" | "standard" | "background"
+      memory_revision_action:
+        | "created"
+        | "updated"
+        | "archived"
+        | "deleted"
+        | "restored"
+      memory_source: "explicit-user" | "assistant-inferred" | "manual-panel"
+      memory_status: "active" | "archived" | "deleted"
     }
     CompositeTypes: {
       [_ in never]: never

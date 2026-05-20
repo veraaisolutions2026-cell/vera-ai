@@ -14,6 +14,7 @@ import {
   extractTextFromMessageParts,
   type ChatAttachment,
 } from "@/lib/chat-attachments"
+import { DEFAULT_CHAT_MODEL_ID } from "@/lib/models"
 import { getAgent } from "@/lib/db/agents"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { getUsageAvailability } from "@/lib/db/usage-limits"
@@ -76,7 +77,7 @@ export async function startChat(
 
   const chat = await createChat(
     userId,
-    model ?? "claude-sonnet-4-6",
+    model ?? DEFAULT_CHAT_MODEL_ID,
     resolvedAgentId
   )
 

@@ -6,8 +6,11 @@ import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { startChat } from "@/actions/chat-actions"
+import type { AnswerPreference } from "@/lib/answer-preference"
 import type { PlanId } from "@/lib/billing-plans"
+import { DEFAULT_CHAT_MODEL_ID, normalizeModelId } from "@/lib/models"
 import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
+import { ChatAgentBar } from "./chat-agent-bar"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
 import type { Agent } from "@/types/database"
@@ -22,9 +25,14 @@ const SUBHEADINGS = [
 type Props = {
   userName: string
   agents: Agent[]
+  initialAnswerPreference: AnswerPreference | null
 }
 
-export function ChatNewPage({ userName, agents }: Props) {
+export function ChatNewPage({
+  userName,
+  agents,
+  initialAnswerPreference,
+}: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const modelFromQuery = searchParams.get("model")
@@ -32,7 +40,9 @@ export function ChatNewPage({ userName, agents }: Props) {
   const fromAgentCard = searchParams.get("fromAgentCard") === "1"
   const [input, setInput] = useState("")
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
-  const [model, setModel] = useState(modelFromQuery ?? "claude-sonnet-4-6")
+  const [model, setModel] = useState(
+    normalizeModelId(modelFromQuery ?? DEFAULT_CHAT_MODEL_ID)
+  )
   const [isStarting, setIsStarting] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([])
   const [usagePlan, setUsagePlan] = useState<PlanId>("vera-coach")
@@ -203,6 +213,9 @@ export function ChatNewPage({ userName, agents }: Props) {
         }
 
         const query = new URLSearchParams()
+        if (initialAnswerPreference) {
+          query.set("answerPreference", initialAnswerPreference)
+        }
 
         routeHandoffRef.current = true
         router.push(
@@ -225,6 +238,7 @@ export function ChatNewPage({ userName, agents }: Props) {
       input,
       isStarting,
       model,
+      initialAnswerPreference,
       router,
       selectedAgent,
       showOutOfUsageToast,
@@ -260,6 +274,16 @@ export function ChatNewPage({ userName, agents }: Props) {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
           >
+            <div className="pointer-events-auto absolute inset-x-0 top-0 z-10">
+              <div className="flex w-full px-4 pt-4 sm:px-6 lg:px-8">
+                <ChatAgentBar
+                  agents={agents}
+                  selectedAgent={selectedAgent}
+                  onAgentChange={setSelectedAgent}
+                />
+              </div>
+            </div>
+
             <div className="flex w-full flex-col items-center">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -294,7 +318,7 @@ export function ChatNewPage({ userName, agents }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
                   duration: 0.38,
-                  delay: 0.24,
+                  delay: 0.22,
                   ease: [0.22, 1, 0.36, 1],
                 }}
                 className="w-full"
@@ -304,9 +328,6 @@ export function ChatNewPage({ userName, agents }: Props) {
                   onInputChange={setInput}
                   onSubmit={() => void handleStartChat()}
                   isLoading={isStarting}
-                  agents={agents}
-                  selectedAgent={selectedAgent}
-                  onAgentChange={setSelectedAgent}
                   model={model}
                   onModelChange={setModel}
                   attachedFiles={attachedFiles}
@@ -326,15 +347,12 @@ export function ChatNewPage({ userName, agents }: Props) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{
                   duration: 0.4,
-                  delay: 0.3,
+                  delay: 0.28,
                   ease: [0.22, 1, 0.36, 1],
                 }}
                 className="mt-4 w-full max-w-3xl px-4 sm:mt-3"
               >
-                <p className="mb-2.5 text-[11px] font-medium tracking-wide text-muted-foreground/50 uppercase">
-                  Get started with an example
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="flex flex-wrap gap-2.5">
                   {DEFAULT_PROMPTS.map((card) => {
                     const Icon = promptIcons[card.icon]
                     return (
@@ -342,19 +360,14 @@ export function ChatNewPage({ userName, agents }: Props) {
                         key={card.id}
                         onClick={() => triggerDefaultPrompt(card)}
                         disabled={isStarting}
-                        className="group flex flex-col gap-3 rounded-xl border border-border/50 bg-card/60 p-4 text-left transition-all hover:border-border/80 hover:bg-card disabled:pointer-events-none disabled:opacity-50"
+                        className="group inline-flex items-center gap-2.5 rounded-full border border-border/50 bg-card/60 px-3.5 py-2 text-left text-sm font-medium transition-colors hover:border-border/80 hover:bg-card disabled:pointer-events-none disabled:opacity-50"
                       >
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground/6 text-muted-foreground/70 transition-colors group-hover:bg-foreground/10 group-hover:text-foreground">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/6 text-muted-foreground/70 transition-colors group-hover:bg-foreground/10 group-hover:text-foreground">
                           <Icon className="h-3.5 w-3.5" />
                         </span>
-                        <div>
-                          <p className="text-sm leading-snug font-medium">
-                            {card.title}
-                          </p>
-                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                            {card.description}
-                          </p>
-                        </div>
+                        <span className="text-sm leading-none font-medium whitespace-nowrap text-foreground">
+                          {card.title}
+                        </span>
                       </button>
                     )
                   })}

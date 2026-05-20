@@ -135,7 +135,7 @@ export function ProfileSettings({ user }: Props) {
             <p className="text-sm font-medium">{user.name}</p>
             <p className="text-xs text-muted-foreground">{user.email}</p>
             {!isGoogleUser && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground/60">
+              <p className="mt-0.5 text-xs text-muted-foreground/60">
                 Click avatar to upload a photo (max 5 MB)
               </p>
             )}
@@ -167,7 +167,7 @@ export function ProfileSettings({ user }: Props) {
             {isGoogleUser && (
               <div className="flex items-start gap-1.5">
                 <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/50" />
-                <p className="text-[11px] text-muted-foreground/60">
+                <p className="text-xs text-muted-foreground/60">
                   Your name is managed by Google and cannot be changed here.
                 </p>
               </div>
@@ -194,13 +194,13 @@ export function ProfileSettings({ user }: Props) {
             {isGoogleUser ? (
               <div className="flex items-start gap-1.5">
                 <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/50" />
-                <p className="text-[11px] text-muted-foreground/60">
+                <p className="text-xs text-muted-foreground/60">
                   Your account is managed by Google. Email changes require
                   re-authentication via Google.
                 </p>
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground/60">
                 To change your email, contact support.
               </p>
             )}

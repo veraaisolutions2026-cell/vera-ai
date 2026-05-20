@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/animate-ui/components/radix/popover"
-import { getModelLabel } from "@/lib/models"
+import { areEquivalentModelIds, getModelLabel } from "@/lib/models"
 import { useAvailableModels } from "@/hooks/use-available-models"
 
 export type ModelId = string
@@ -26,8 +26,11 @@ export function ModelSelector({ value, onChange }: Props) {
       (a, b) => familyOrder[a.family] - familyOrder[b.family]
     )
   }, [models])
-  const current = orderedModels.find((m) => m.id === value) ?? orderedModels[0]
-  const currentLabel = current?.label ?? getModelLabel(value)
+  const matchedModel = orderedModels.find((model) =>
+    areEquivalentModelIds(model.id, value)
+  )
+  const current = matchedModel ?? orderedModels[0]
+  const currentLabel = matchedModel?.label ?? getModelLabel(value)
 
   useEffect(() => {
     if (open) refresh()
@@ -57,11 +60,11 @@ export function ModelSelector({ value, onChange }: Props) {
           >
             <div className="min-w-0 flex-1 text-left">
               <p className="leading-none font-medium">{model.fullLabel}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {model.description}
               </p>
             </div>
-            {value === model.id && (
+            {areEquivalentModelIds(value, model.id) && (
               <CheckIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
             )}
           </button>

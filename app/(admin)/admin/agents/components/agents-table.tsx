@@ -66,6 +66,7 @@ export function AgentsTable({
   allVisibleSelected,
   onToggleAgent,
   onToggleSelectVisible,
+  onAgentsDeleted,
 }: {
   agents: Agent[]
   builtinLayerMap: Record<string, LayerName[]>
@@ -75,10 +76,13 @@ export function AgentsTable({
   allVisibleSelected: boolean
   onToggleAgent: (agentId: string, checked: boolean) => void
   onToggleSelectVisible: (checked: boolean) => void
+  onAgentsDeleted: (agentIds: string[]) => void
 }) {
   const router = useRouter()
   const [deleting, setDeleting] = useState<string | null>(null)
   const [confirmAgentId, setConfirmAgentId] = useState<string | null>(null)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [rowsPerPage, setRowsPerPage] = useState<10 | 20 | 50>(10)
   const [page, setPage] = useState(1)
 
@@ -98,6 +102,7 @@ export function AgentsTable({
 
     if (res.ok) {
       setConfirmAgentId(null)
+      onAgentsDeleted([id])
       router.refresh()
       toast.success("Agent deleted.")
       return
@@ -105,6 +110,32 @@ export function AgentsTable({
 
     const data = (await res.json().catch(() => ({}))) as { error?: string }
     toast.error(data.error ?? "Failed to delete agent.")
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(new Set(selectedAgentIds))
+    if (ids.length === 0 || isBulkDeleting) return
+
+    setIsBulkDeleting(true)
+    const res = await fetch("/api/admin/agents", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    })
+    setIsBulkDeleting(false)
+
+    if (res.ok) {
+      setBulkDeleteOpen(false)
+      onAgentsDeleted(ids)
+      router.refresh()
+      toast.success(
+        `${ids.length} agent${ids.length === 1 ? "" : "s"} deleted.`
+      )
+      return
+    }
+
+    const data = (await res.json().catch(() => ({}))) as { error?: string }
+    toast.error(data.error ?? "Failed to delete selected agents.")
   }
 
   if (agents.length === 0) {
@@ -137,6 +168,17 @@ export function AgentsTable({
           >
             {allVisibleSelected ? "Unselect visible" : "Select visible"}
           </button>
+
+          {selectedAgentIds.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setBulkDeleteOpen(true)}
+              className="inline-flex h-8 items-center gap-1 rounded-full border border-destructive/30 px-3 text-xs text-destructive transition-colors hover:bg-destructive/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete selected
+            </button>
+          ) : null}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -192,21 +234,21 @@ export function AgentsTable({
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {agent.category ?? "Uncategorized"}
                       </p>
-                      <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">
                         {agent.base_model}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-1">
                         {(tabAssignments[agent.id] ?? []).map((tabId) => (
                           <span
                             key={`${agent.id}-${tabId}`}
-                            className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground"
+                            className="rounded-full border border-border/60 px-2 py-0.5 text-xs text-muted-foreground"
                           >
                             {tabNameById.get(tabId) ?? tabId}
                           </span>
                         ))}
                       </div>
                       {agent.is_builtin ? (
-                        <p className="mt-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           {getLayerLabel(layers)}
                         </p>
                       ) : null}
@@ -313,7 +355,7 @@ export function AgentsTable({
                     <td className="px-4 py-3">
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
                           agent.is_builtin
                             ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                             : "bg-foreground/8 text-muted-foreground"
@@ -333,7 +375,7 @@ export function AgentsTable({
                           {(tabAssignments[agent.id] ?? []).map((tabId) => (
                             <span
                               key={`${agent.id}-${tabId}`}
-                              className="rounded-full border border-border/60 px-2 py-0.5 text-[10px]"
+                              className="rounded-full border border-border/60 px-2 py-0.5 text-xs"
                             >
                               {tabNameById.get(tabId) ?? tabId}
                             </span>
@@ -415,6 +457,39 @@ export function AgentsTable({
           </PaginationContent>
         </Pagination>
       )}
+
+      <AlertDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          if (!isBulkDeleting) {
+            setBulkDeleteOpen(open)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete selected agents?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selectedAgentIds.length} selected
+              agent{selectedAgentIds.length === 1 ? "" : "s"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkDeleting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={selectedAgentIds.length === 0 || isBulkDeleting}
+              onClick={() => {
+                void handleBulkDelete()
+              }}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {isBulkDeleting ? "Deleting..." : "Delete selected"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={Boolean(confirmAgentId)}

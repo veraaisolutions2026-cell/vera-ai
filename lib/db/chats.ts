@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { DEFAULT_CHAT_MODEL_ID } from "@/lib/models"
 import type { Chat } from "@/types/database"
 
 export async function getRecentChats(
@@ -31,7 +32,7 @@ export async function getChat(chatId: string): Promise<Chat | null> {
 
 export async function createChat(
   userId: string,
-  model = "claude-sonnet-4-6",
+  model = DEFAULT_CHAT_MODEL_ID,
   agentId?: string
 ): Promise<Chat | null> {
   const supabase = await createClient()

@@ -376,6 +376,20 @@ export async function adminDeleteAgent(id: string): Promise<boolean> {
   return !error
 }
 
+export async function adminDeleteAgents(ids: string[]): Promise<boolean> {
+  const cleanedIds = Array.from(
+    new Set(ids.filter((id) => typeof id === "string" && id.length > 0))
+  )
+
+  if (cleanedIds.length === 0) {
+    return true
+  }
+
+  const service = createServiceClient()
+  const { error } = await service.from("agents").delete().in("id", cleanedIds)
+  return !error
+}
+
 export async function adminUpdateUserRole(
   userId: string,
   role: Profile["role"]

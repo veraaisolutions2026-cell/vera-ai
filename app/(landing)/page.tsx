@@ -1,15 +1,13 @@
-import { Cta } from "./components/cta"
+import { Faq } from "./components/faq"
 import { Hero } from "./components/hero"
-import { KeyStats } from "./components/key-stats"
-import { ValueProposition } from "./components/value-proposition"
+import { PricingPlans } from "./components/pricing-plans"
 
 export default function Page() {
   return (
-    <main>
+    <>
       <Hero />
-      <ValueProposition />
-      <KeyStats />
-      <Cta />
-    </main>
+      <PricingPlans />
+      <Faq />
+    </>
   )
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { setAgentTabsForMany } from "@/lib/db/admin-agent-tabs"
 import { adminDeleteAgent, adminUpdateAgent } from "@/lib/db/admin"
 import {
   removeBuiltinAgentLayerMapping,
@@ -96,6 +97,7 @@ export async function DELETE(
   }
 
   await removeBuiltinAgentLayerMapping(id)
+  await setAgentTabsForMany([id], [])
 
   return new NextResponse(null, { status: 204 })
 }
