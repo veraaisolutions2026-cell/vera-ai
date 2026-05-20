@@ -31,7 +31,7 @@ export function Header() {
     mass: 0.75,
   })
 
-  const bgOpacity = useTransform(progress, [0, 1], [0, 1])
+  const bgOpacity = useTransform(progress, [0, 1], [0, 0.88])
   const paddingY = useTransform(progress, [0, 1], [8, 0])
   const innerHeight = useTransform(progress, [0, 1], [68, 56])
 
@@ -56,7 +56,7 @@ export function Header() {
           style={{ height: innerHeight }}
         >
           <Link href="/" aria-label="Go to homepage" className="shrink-0">
-            <VeraLogo width={96} height={26} priority variant="wide" />
+            <VeraLogo width={130} height={40} priority variant="wide" />
           </Link>
 
           {/* Desktop nav */}

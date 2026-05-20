@@ -26,7 +26,7 @@ export function Footer() {
           {/* Brand col */}
           <div className="flex flex-col justify-between gap-8 sm:col-span-1 lg:col-span-2">
             <Link href="/" aria-label="Go to homepage" className="w-fit">
-              <VeraLogo width={80} height={22} variant="wide" />
+              <VeraLogo width={130} height={40} variant="wide" />
             </Link>
 
             <div className="flex flex-col gap-1.5">

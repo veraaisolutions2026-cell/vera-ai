@@ -1036,8 +1036,8 @@ export function Sidebar({
 
       <aside className="flex h-svh w-60 shrink-0 flex-col bg-sidebar">
         <div className="shrink-0">
-          <div className="flex h-14 items-center justify-between px-4">
-            <VeraLogo width={74} height={20} />
+          <div className="flex h-14 items-center justify-between px-1">
+            <VeraLogo width={104} height={30} />
 
             <Tooltip delayDuration={600}>
               <TooltipTrigger asChild>

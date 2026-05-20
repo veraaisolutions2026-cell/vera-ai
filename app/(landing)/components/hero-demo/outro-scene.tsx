@@ -28,7 +28,7 @@ export function OutroScene({ reduce }: { reduce: boolean }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: dur, ease: EASE }}
       >
-        <VeraLogo width={128} height={35} variant="wide" priority={false} />
+        <VeraLogo width={200} height={75} variant="wide" priority={false} />
       </motion.div>
 
       <motion.p

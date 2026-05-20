@@ -19,7 +19,7 @@ export function IntroScene({ reduce }: { reduce: boolean }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: dur, ease: EASE }}
       >
-        <VeraLogo width={128} height={35} variant="wide" priority={false} />
+        <VeraLogo width={200} height={75} variant="wide" priority={false} />
       </motion.div>
 
       <div className="flex flex-col items-center -space-y-1">
@@ -53,7 +53,7 @@ export function ReducedMotionStatic() {
       data-testid="demo-scene-outro"
       className="flex h-full w-full flex-col items-center justify-center gap-6 px-8 text-center"
     >
-      <VeraLogo width={128} height={35} variant="wide" priority={false} />
+      <VeraLogo width={200} height={75} variant="wide" priority={false} />
       <p className="text-base text-muted-foreground">
         Every audit. Every insight. One platform.
       </p>
