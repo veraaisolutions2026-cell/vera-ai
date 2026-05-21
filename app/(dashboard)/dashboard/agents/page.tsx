@@ -9,7 +9,7 @@ import { UpgradeCreateAgentButton } from "./components/upgrade-create-agent-butt
 import { AgentTabs } from "./components/agent-tabs"
 
 export const metadata = {
-  title: "Agents — Vera AI",
+  title: "Agents - Vera AI",
 }
 
 export default async function AgentsPage() {

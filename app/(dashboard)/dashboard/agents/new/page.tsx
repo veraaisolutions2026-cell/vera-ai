@@ -4,7 +4,7 @@ import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { AgentBuilder } from "./components/agent-builder"
 
 export const metadata = {
-  title: "Create Agent — Vera AI",
+  title: "Create Agent - Vera AI",
 }
 
 export default async function NewAgentPage() {

@@ -27,7 +27,7 @@ export function DangerZone() {
         toast.error(result.error)
         setOpen(false)
       }
-      // On success the server action redirects — no need to handle here
+      // On success the server action redirects - no need to handle here
     })
   }
 

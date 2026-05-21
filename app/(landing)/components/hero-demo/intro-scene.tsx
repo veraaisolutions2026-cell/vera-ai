@@ -4,7 +4,7 @@ import { motion } from "motion/react"
 import { VeraLogo } from "@/components/ui/vera-logo"
 import { EASE } from "./types"
 
-// ── Scene 0 — Intro ───────────────────────────────────────────────
+// ── Scene 0 - Intro ───────────────────────────────────────────────
 export function IntroScene({ reduce }: { reduce: boolean }) {
   const y = reduce ? 0 : 14
   const dur = reduce ? 0 : 0.65
@@ -46,7 +46,7 @@ export function IntroScene({ reduce }: { reduce: boolean }) {
 }
 
 // ── Reduced-motion static view ────────────────────────────────────
-// Shows the outro as a frozen final state — no loops, no timers.
+// Shows the outro as a frozen final state - no loops, no timers.
 export function ReducedMotionStatic() {
   return (
     <div

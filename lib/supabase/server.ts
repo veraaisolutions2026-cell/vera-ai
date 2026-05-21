@@ -19,7 +19,7 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // Server Component — cookies cannot be mutated here
+            // Server Component - cookies cannot be mutated here
           }
         },
       },

@@ -588,7 +588,7 @@ function ChatMessageComponent({
 
   if (isStreaming) {
     const hasReasoning = Boolean(reasoningContent?.trim())
-    // Only return null when there is truly nothing to show — no reasoning, no
+    // Only return null when there is truly nothing to show - no reasoning, no
     // live content, and no raw content either. Returning null when content has
     // arrived but the reveal interval hasn't fired yet (liveContent still empty)
     // creates a visible blank gap between the thinking indicator and the first
@@ -692,7 +692,7 @@ function ChatMessageComponent({
       }}
     >
       <div className="max-w-[85%]">
-        {/* Persistent CoT panel — shown collapsed after streaming ends.
+        {/* Persistent CoT panel - shown collapsed after streaming ends.
             Matches v0-style: user can tap to expand and see the reasoning steps. */}
         {(reasoningEnabled || Boolean(reasoningContent?.trim())) && (
           <ChainOfThought className="mb-3 max-w-none">

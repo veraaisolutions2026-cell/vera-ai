@@ -10,7 +10,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 })
 
 /**
- * Pricing defined entirely in code — no Stripe Price IDs or env vars needed.
+ * Pricing defined entirely in code - no Stripe Price IDs or env vars needed.
  * Checkout uses price_data inline. Amounts are in cents (USD).
  */
 export const PLAN_PRICING: Record<

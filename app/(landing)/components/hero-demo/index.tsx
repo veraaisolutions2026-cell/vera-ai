@@ -27,7 +27,7 @@ export function HeroDemo() {
   const [cursor, setCursor] = useState({ x: 0, y: 0, clicking: false })
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Scene advancement — fires after each scene's duration
+  // Scene advancement - fires after each scene's duration
   useEffect(() => {
     if (reduce) return
 
@@ -151,7 +151,7 @@ export function HeroDemo() {
         )}
       </AnimatePresence>
 
-      {/* Cursor — only visible during interactive scenes */}
+      {/* Cursor - only visible during interactive scenes */}
       <DemoCursor
         x={cursor.x}
         y={cursor.y}

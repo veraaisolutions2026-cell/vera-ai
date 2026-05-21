@@ -4,7 +4,7 @@ import { motion } from "motion/react"
 import { VeraLogo } from "@/components/ui/vera-logo"
 import { EASE } from "./types"
 
-// ── Scene 7 — Outro ───────────────────────────────────────────────
+// ── Scene 7 - Outro ───────────────────────────────────────────────
 export function OutroScene({ reduce }: { reduce: boolean }) {
   const y = reduce ? 0 : 10
   const dur = reduce ? 0 : 0.6

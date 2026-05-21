@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from "@/components/animate-ui/components/radix/popover"
 import { areEquivalentModelIds, getModelLabel } from "@/lib/models"
+import { cn } from "@/lib/utils"
 import { useAvailableModels } from "@/hooks/use-available-models"
 
 export type ModelId = string
@@ -15,9 +16,10 @@ export type ModelId = string
 type Props = {
   value: string
   onChange: (model: ModelId) => void
+  className?: string
 }
 
-export function ModelSelector({ value, onChange }: Props) {
+export function ModelSelector({ value, onChange, className }: Props) {
   const [open, setOpen] = useState(false)
   const { models, refresh } = useAvailableModels()
   const orderedModels = useMemo(() => {
@@ -39,14 +41,21 @@ export function ModelSelector({ value, onChange }: Props) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-          {currentLabel}
-          <span className="ml-0.5 opacity-50">▾</span>
+        <button
+          type="button"
+          data-testid="chat-model-selector"
+          className={cn(
+            "flex h-10 max-w-38 items-center gap-1.5 rounded-full border border-border/65 bg-background/72 px-3.5 text-sm font-medium text-foreground/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-colors hover:bg-accent/70 hover:text-foreground",
+            className
+          )}
+        >
+          <span className="min-w-0 truncate">{currentLabel}</span>
+          <span className="shrink-0 opacity-50">▾</span>
         </button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="max-h-72 w-64 overflow-y-auto p-1"
+        className="max-h-72 w-72 overflow-y-auto rounded-[1.25rem] p-1.5"
         sideOffset={8}
       >
         {orderedModels.map((model) => (

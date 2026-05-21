@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // Refresh session — required for Server Components to pick up auth state
+  // Refresh session - required for Server Components to pick up auth state
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -37,7 +37,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Protect admin routes — layout will do role check
+  // Protect admin routes - layout will do role check
   if (!user && pathname.startsWith("/admin") && pathname !== "/admin-login") {
     return NextResponse.redirect(new URL("/login", request.url))
   }

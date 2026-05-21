@@ -1,5 +1,5 @@
 /**
- * Prompt 1 — Hero Demo scaffold tests
+ * Prompt 1 - Hero Demo scaffold tests
  *
  * Validates:
  * 1. The HeroDemo container mounts on the landing page
@@ -26,7 +26,7 @@ async function gotoLanding(page: Parameters<typeof test>[1]) {
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
-test.describe("HeroDemo — Prompt 1 scaffold", () => {
+test.describe("HeroDemo - Prompt 1 scaffold", () => {
   test("demo container mounts on landing page", async ({ page }) => {
     await gotoLanding(page)
 
@@ -58,7 +58,7 @@ test.describe("HeroDemo — Prompt 1 scaffold", () => {
     await gotoLanding(page)
 
     // VeraLogo renders two <img> tags (one per theme). Filter to the one that is
-    // actually visible — which depends on whether dark mode is active.
+    // actually visible - which depends on whether dark mode is active.
     const demo = page.getByTestId("hero-demo")
     const logoImages = demo.locator("img[alt='Vera AI']")
     await expect(logoImages.filter({ visible: true }).first()).toBeVisible()
@@ -85,7 +85,7 @@ test.describe("HeroDemo — Prompt 1 scaffold", () => {
     // intro(3500) + tab-ui(5000) + agent-builder(7000) + ai-thinking(6000) +
     // agent-result(4500) + chat-transition(4000) + chat-demo(10000) = 40 000ms
     // Plus exit fades (7 x ~400ms = ~2800ms overhead) = ~43s total
-    // This is too long to wait in a single test — instead, directly verify the
+    // This is too long to wait in a single test - instead, directly verify the
     // outro scene by manipulating clock or just checking it renders correctly
     // via a short goto to a scene-isolated version.
     //

@@ -123,7 +123,7 @@ export async function uploadAvatar(
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
 
-  // Block for Google users — they use their Google avatar automatically
+  // Block for Google users - they use their Google avatar automatically
   const provider = user.app_metadata?.provider as string | undefined
   if (provider === "google")
     return { error: "Google accounts use their Google avatar" }

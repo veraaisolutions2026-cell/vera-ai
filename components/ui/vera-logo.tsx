@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 
 // Wide logo ratio: 590×160 = 3.6875:1
 // Short logo: 500×500 (square)
-// Uses CSS dark-mode classes — no client component needed, no hydration flash.
+// Uses CSS dark-mode classes - no client component needed, no hydration flash.
 
 type Props = {
   width: number

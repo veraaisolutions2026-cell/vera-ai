@@ -347,7 +347,7 @@ export function AgentsTable({
                     </td>
                     <td className="px-4 py-3 font-medium">{agent.name}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {agent.category ?? "—"}
+                      {agent.category ?? "-"}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                       {agent.base_model}
@@ -369,7 +369,7 @@ export function AgentsTable({
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {(tabAssignments[agent.id] ?? []).length === 0 ? (
-                        "—"
+                        "-"
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {(tabAssignments[agent.id] ?? []).map((tabId) => (

@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     req.headers.get("origin") ?? process.env.NEXT_PUBLIC_APP_URL ?? ""
 
   // Reuse existing customer if we have one
-  // Note: customer_creation is payment-mode only — subscription mode creates customer from email automatically
+  // Note: customer_creation is payment-mode only - subscription mode creates customer from email automatically
   const existing = await getSubscription(user.id)
   const customerParam = existing?.stripe_customer_id
     ? { customer: existing.stripe_customer_id }

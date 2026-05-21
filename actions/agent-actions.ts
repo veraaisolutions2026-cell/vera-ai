@@ -61,7 +61,7 @@ export async function updateUserAgent(
     return { error: "Custom agent management is not available on your plan" }
   }
 
-  // Verify ownership — only update if user owns this non-builtin agent
+  // Verify ownership - only update if user owns this non-builtin agent
   const { error } = await supabase
     .from("agents")
     .update({ ...data, updated_at: new Date().toISOString() })

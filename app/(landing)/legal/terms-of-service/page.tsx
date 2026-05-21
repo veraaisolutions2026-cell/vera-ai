@@ -65,7 +65,7 @@ export default function TermsOfServicePage() {
           </p>
           <ul className="list-disc space-y-3 pl-5">
             <li>
-              <span className="font-medium text-foreground">Vera Coach</span> —
+              <span className="font-medium text-foreground">Vera Coach</span> -
               provides access to the chat workspace and built-in audit agents
               with approximately 500 AI requests per month. Custom agent
               creation is not available on this plan.
@@ -74,7 +74,7 @@ export default function TermsOfServicePage() {
               <span className="font-medium text-foreground">
                 Vera Intelligence
               </span>{" "}
-              — provides unlimited custom agent creation, knowledge-base tooling
+              - provides unlimited custom agent creation, knowledge-base tooling
               with agent-to-file linking, approximately 1,500 AI requests per
               month, and priority support.
             </li>

@@ -38,7 +38,7 @@ export default async function ChatSessionPage({
     getMessages(chat.id, user.id),
     supabase
       .from("profiles")
-      .select("full_name, answer_preference")
+      .select("full_name, avatar_url, answer_preference")
       .eq("id", user.id)
       .single(),
     getUserLayerAccess(user.id),
@@ -102,7 +102,9 @@ export default async function ChatSessionPage({
     <ChatSession
       chatId={chat.id}
       initialTitle={chat.title}
+      userId={user.id}
       userName={userName}
+      userAvatarUrl={profileResult.data?.avatar_url ?? null}
       agents={filteredAgents}
       lockedModel={chat.model}
       initialMessages={initialMessages}

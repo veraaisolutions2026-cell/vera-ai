@@ -459,7 +459,7 @@ function AcaMessage({
       </div>
       <div className="min-w-0 flex-1">
         {/* Persistent CoT panel for text-only responses (no tool invocation).
-            Open while animating, collapses after — user can tap to expand. */}
+            Open while animating, collapses after - user can tap to expand. */}
         {wasAnimated && !createPart && textContent && (
           <ChainOfThought
             open={isCoTOpen}
@@ -708,7 +708,7 @@ export function AgentBuilder({
     }
   }, [status, latestAssistantId])
 
-  // Watch for create_agent tool results — toast success + keep created id
+  // Watch for create_agent tool results - toast success + keep created id
   useEffect(() => {
     for (const msg of messages) {
       if (msg.role !== "assistant") continue
@@ -948,7 +948,7 @@ export function AgentBuilder({
             <div>
               <p className="text-sm leading-none font-medium">Travers</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Describe your agent — Travers will design and create it for you.
+                Describe your agent - Travers will design and create it for you.
               </p>
             </div>
           </div>
@@ -1008,7 +1008,7 @@ export function AgentBuilder({
                   />
                 ))}
 
-                {/* Travers loading indicator — only shown before the first
+                {/* Travers loading indicator - only shown before the first
                     assistant token arrives (avoids duplicate with AcaMessage content) */}
                 {acaIsLoading &&
                   messages[messages.length - 1]?.role !== "assistant" && (

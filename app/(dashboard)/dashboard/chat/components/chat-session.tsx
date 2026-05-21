@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { ShieldAlert, ScanSearch, FileText } from "lucide-react"
 import { toast } from "sonner"
 import { updateAnswerPreference } from "@/actions/settings-actions"
+import { AgentWelcomeHero } from "./agent-welcome-hero"
 import { ChatAgentBar } from "./chat-agent-bar"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
@@ -33,7 +34,9 @@ import {
 type Props = {
   chatId: string
   initialTitle: string
+  userId: string
   userName: string
+  userAvatarUrl: string | null
   agents: Agent[]
   lockedModel: string
   initialMessages: UIMessage[]
@@ -402,7 +405,9 @@ function buildInitialBranchMap(
 export function ChatSession({
   chatId,
   initialTitle,
+  userId,
   userName,
+  userAvatarUrl,
   agents,
   lockedModel,
   initialMessages,
@@ -657,7 +662,7 @@ export function ChatSession({
   }, [showDeadState, status])
 
   // Bootstrap: fire one generation automatically on mount.
-  // reactStrictMode is false so this fires exactly once — no guards needed.
+  // reactStrictMode is false so this fires exactly once - no guards needed.
   useEffect(() => {
     // ── Case A: brand-new chat from the welcome screen ──────────────────────
     // pendingFirstMessage is set; initialMessages is empty. For no-agent chats
@@ -1453,31 +1458,56 @@ export function ChatSession({
             </div>
 
             <div className="flex w-full flex-col items-center">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{
-                  opacity: showWelcomeLayout ? 1 : 0,
-                  y: showWelcomeLayout ? 0 : -6,
-                }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="mb-1.5 px-4 text-center"
-              >
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  {getGreeting()}
-                </h1>
-              </motion.div>
+              {activeAgent ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{
+                    opacity: showWelcomeLayout ? 1 : 0,
+                    y: showWelcomeLayout ? 0 : -6,
+                  }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="w-full"
+                >
+                  <AgentWelcomeHero
+                    agent={activeAgent}
+                    userId={userId}
+                    userName={userName}
+                    userAvatarUrl={userAvatarUrl}
+                  />
+                </motion.div>
+              ) : (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{
+                      opacity: showWelcomeLayout ? 1 : 0,
+                      y: showWelcomeLayout ? 0 : -6,
+                    }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="mb-1.5 px-4 text-center"
+                  >
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                      {getGreeting()}
+                    </h1>
+                  </motion.div>
 
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{
-                  opacity: showWelcomeLayout ? 1 : 0,
-                  y: showWelcomeLayout ? 0 : -6,
-                }}
-                transition={{ duration: 0.2, ease: "easeOut", delay: 0.03 }}
-                className="mb-16 px-4 text-sm text-muted-foreground sm:mb-28"
-              >
-                {getSubheading()}
-              </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{
+                      opacity: showWelcomeLayout ? 1 : 0,
+                      y: showWelcomeLayout ? 0 : -6,
+                    }}
+                    transition={{
+                      duration: 0.2,
+                      ease: "easeOut",
+                      delay: 0.03,
+                    }}
+                    className="mb-16 px-4 text-sm text-muted-foreground sm:mb-28"
+                  >
+                    {getSubheading()}
+                  </motion.p>
+                </>
+              )}
 
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -1486,7 +1516,7 @@ export function ChatSession({
                   y: showWelcomeLayout ? 0 : -8,
                 }}
                 transition={{ duration: 0.22, delay: 0.06 }}
-                className="mt-6 w-full max-w-3xl px-4 sm:mt-10"
+                className="mt-6 w-full max-w-4xl px-4 sm:mt-10"
               >
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {DEFAULT_PROMPTS.map((card) => {
@@ -1547,7 +1577,7 @@ export function ChatSession({
               </div>
 
               <div className="flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-3xl space-y-6 px-4 pt-6 pb-44">
+                <div className="mx-auto max-w-4xl space-y-6 px-4 pt-6 pb-44">
                   {flatMessages.map((message, index) => {
                     const pairedAssistantMessageId =
                       message.role === "user"
@@ -1654,7 +1684,7 @@ export function ChatSession({
               }
               transition={{ duration: 0.22, ease: "easeOut" }}
             />
-            <div className="pointer-events-auto relative mx-auto w-full max-w-3xl px-4">
+            <div className="pointer-events-auto relative mx-auto w-full max-w-4xl px-4">
               <ChatComposer
                 input={input}
                 onInputChange={setInput}

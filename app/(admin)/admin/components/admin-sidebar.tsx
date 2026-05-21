@@ -259,7 +259,7 @@ export function AdminSidebar({ user, onCollapse, onExpand, collapsed }: Props) {
 
   return (
     <aside className="flex h-svh w-60 shrink-0 flex-col bg-sidebar">
-      {/* Header — logo left, Admin label right */}
+      {/* Header - logo left, Admin label right */}
       <div className="flex h-14 shrink-0 items-center justify-between px-1">
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="Go to Vera AI home">

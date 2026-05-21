@@ -120,7 +120,7 @@ export function AcaManager({ initialPrompt, initialUpdatedAt, source }: Props) {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium">
             {mode === "preview"
-              ? "Formatted Preview — review before saving"
+              ? "Formatted Preview - review before saving"
               : mode === "edit"
                 ? "Edit Travers Prompt"
                 : "Current Travers Master Prompt"}

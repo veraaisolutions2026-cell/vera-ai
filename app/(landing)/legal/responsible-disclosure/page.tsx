@@ -146,16 +146,16 @@ export default function ResponsibleDisclosurePage() {
               <span className="font-medium text-foreground">
                 Acknowledgement
               </span>{" "}
-              — We will acknowledge receipt of your report within 3 business
+              - We will acknowledge receipt of your report within 3 business
               days.
             </li>
             <li>
-              <span className="font-medium text-foreground">Triage</span> — We
+              <span className="font-medium text-foreground">Triage</span> - We
               will assess the validity and severity of the reported issue within
               10 business days.
             </li>
             <li>
-              <span className="font-medium text-foreground">Remediation</span> —
+              <span className="font-medium text-foreground">Remediation</span> -
               Critical vulnerabilities such as authentication bypass, data
               exposure, or privilege escalation will be prioritised and patched
               as quickly as possible, typically within 30 days. Less critical
@@ -163,11 +163,11 @@ export default function ResponsibleDisclosurePage() {
             </li>
             <li>
               <span className="font-medium text-foreground">Notification</span>{" "}
-              — We will notify you when the issue has been resolved.
+              - We will notify you when the issue has been resolved.
             </li>
             <li>
               <span className="font-medium text-foreground">Coordination</span>{" "}
-              — We ask that you allow us at least 90 days from initial report
+              - We ask that you allow us at least 90 days from initial report
               before any public disclosure, to allow time for patching and user
               protection.
             </li>

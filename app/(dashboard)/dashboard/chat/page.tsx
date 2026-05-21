@@ -18,7 +18,7 @@ export default async function NewChatPage() {
   const [profileResult, layerAccess] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, answer_preference")
+      .select("full_name, avatar_url, answer_preference")
       .eq("id", user.id)
       .single(),
     getUserLayerAccess(user.id),
@@ -39,7 +39,9 @@ export default async function NewChatPage() {
 
   return (
     <ChatNewPage
+      userId={user.id}
       userName={userName}
+      userAvatarUrl={profileResult.data?.avatar_url ?? null}
       agents={filteredAgents}
       initialAnswerPreference={
         isAnswerPreference(profileResult.data?.answer_preference)

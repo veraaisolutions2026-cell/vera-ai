@@ -21,7 +21,7 @@ export function AcaTabs({ initialPrompt, initialUpdatedAt, source }: Props) {
       {/* Page header + tab switcher */}
       <div className="shrink-0 px-4 pt-4 pb-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Agent Creator — Travers
+          Agent Creator - Travers
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Manage the Travers Master Prompt that powers the agent builder, or use

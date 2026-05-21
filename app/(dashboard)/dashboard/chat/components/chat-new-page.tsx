@@ -11,6 +11,7 @@ import type { PlanId } from "@/lib/billing-plans"
 import { DEFAULT_CHAT_MODEL_ID, normalizeModelId } from "@/lib/models"
 import { showUsageUpsellToast } from "@/lib/usage-upsell-toast"
 import { ChatAgentBar } from "./chat-agent-bar"
+import { AgentWelcomeHero } from "./agent-welcome-hero"
 import { ChatComposer, type AttachedFile } from "./chat-composer"
 import { DEFAULT_PROMPTS } from "./default-prompts"
 import type { Agent } from "@/types/database"
@@ -23,13 +24,17 @@ const SUBHEADINGS = [
 ]
 
 type Props = {
+  userId: string
   userName: string
+  userAvatarUrl: string | null
   agents: Agent[]
   initialAnswerPreference: AnswerPreference | null
 }
 
 export function ChatNewPage({
+  userId,
   userName,
+  userAvatarUrl,
   agents,
   initialAnswerPreference,
 }: Props) {
@@ -285,33 +290,55 @@ export function ChatNewPage({
             </div>
 
             <div className="flex w-full flex-col items-center">
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.34,
-                  delay: 0.1,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="mb-1.5 px-4 text-center"
-              >
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  {getGreeting()}
-                </h1>
-              </motion.div>
+              {selectedAgent ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: 0.34,
+                    delay: 0.1,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  className="w-full"
+                >
+                  <AgentWelcomeHero
+                    agent={selectedAgent}
+                    userId={userId}
+                    userName={userName}
+                    userAvatarUrl={userAvatarUrl}
+                  />
+                </motion.div>
+              ) : (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.34,
+                      delay: 0.1,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="mb-1.5 px-4 text-center"
+                  >
+                    <h1 className="text-2xl font-semibold tracking-tight">
+                      {getGreeting()}
+                    </h1>
+                  </motion.div>
 
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.32,
-                  delay: 0.18,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-                className="mb-7 px-4 text-sm text-muted-foreground"
-              >
-                {getSubheading()}
-              </motion.p>
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: 0.32,
+                      delay: 0.18,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    className="mb-7 px-4 text-sm text-muted-foreground"
+                  >
+                    {getSubheading()}
+                  </motion.p>
+                </>
+              )}
 
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -350,9 +377,9 @@ export function ChatNewPage({
                   delay: 0.28,
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                className="mt-4 w-full max-w-3xl px-4 sm:mt-3"
+                className="mt-4 w-full max-w-4xl px-4 sm:mt-3"
               >
-                <div className="flex flex-wrap gap-2.5">
+                <div className="flex w-full flex-wrap justify-center gap-2.5">
                   {DEFAULT_PROMPTS.map((card) => {
                     const Icon = promptIcons[card.icon]
                     return (

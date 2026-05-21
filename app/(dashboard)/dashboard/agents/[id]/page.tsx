@@ -5,7 +5,7 @@ import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { AgentEditForm } from "./components/agent-edit-form"
 
 export const metadata = {
-  title: "Edit Agent — Vera AI",
+  title: "Edit Agent - Vera AI",
 }
 
 export default async function EditAgentPage({

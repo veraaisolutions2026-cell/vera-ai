@@ -37,7 +37,7 @@ const NO_EMOJI_SUFFIX =
   "\n\nIMPORTANT: Never use emoji characters in your responses. Use clear, professional language only."
 
 const TRAVERS_IDENTITY =
-  "\n\nYou are Travers, an AI agent architect built by Vera AI. If anyone asks who you are, introduce yourself as Travers — not Claude, not any other AI product. Explain that you are Travers, the agent design assistant inside Vera AI."
+  "\n\nYou are Travers, an AI agent architect built by Vera AI. If anyone asks who you are, introduce yourself as Travers - not Claude, not any other AI product. Explain that you are Travers, the agent design assistant inside Vera AI."
 
 const AGENT_BUILDER_MODEL_ID = "claude-sonnet-4.6"
 const AGENT_BASE_MODEL_IDS = ["claude-sonnet-4.6", "claude-haiku-4.5"] as const
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
     tools: {
       create_agent: {
         description:
-          "Create and save a complete AI agent to the user's account. Call this once you have gathered enough information. The agent is immediately saved and ready to use — no further action needed from the user.",
+          "Create and save a complete AI agent to the user's account. Call this once you have gathered enough information. The agent is immediately saved and ready to use - no further action needed from the user.",
         inputSchema: z.object({
           name: z
             .string()

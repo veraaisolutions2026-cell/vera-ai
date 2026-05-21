@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { ArrowRight, FileText, Paperclip, Square, X } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -19,6 +19,36 @@ import { getModelLabel } from "@/lib/models"
 import { ModelSelector, type ModelId } from "./model-selector"
 
 const MAX_UPLOAD_BYTES = 40 * 1024 * 1024
+const MAX_TEXTAREA_HEIGHT = 200
+const SINGLE_LINE_TEXTAREA_HEIGHT = 40
+const TEXTAREA_FADE_SOFT_STOP = 8
+const TEXTAREA_FADE_HARD_STOP = 14
+
+type TextareaMetrics = {
+  isMultiline: boolean
+  canScrollUp: boolean
+  canScrollDown: boolean
+}
+
+function getTextareaMaskImage({
+  isMultiline,
+  canScrollUp,
+  canScrollDown,
+}: TextareaMetrics): string | undefined {
+  if (!isMultiline || (!canScrollUp && !canScrollDown)) {
+    return undefined
+  }
+
+  if (canScrollUp && canScrollDown) {
+    return `linear-gradient(to bottom, transparent 0px, rgba(0, 0, 0, 0.34) ${TEXTAREA_FADE_SOFT_STOP}px, black ${TEXTAREA_FADE_HARD_STOP}px, black calc(100% - ${TEXTAREA_FADE_HARD_STOP}px), rgba(0, 0, 0, 0.34) calc(100% - ${TEXTAREA_FADE_SOFT_STOP}px), transparent 100%)`
+  }
+
+  if (canScrollDown) {
+    return `linear-gradient(to bottom, black 0px, black calc(100% - ${TEXTAREA_FADE_HARD_STOP}px), rgba(0, 0, 0, 0.34) calc(100% - ${TEXTAREA_FADE_SOFT_STOP}px), transparent 100%)`
+  }
+
+  return `linear-gradient(to bottom, transparent 0px, rgba(0, 0, 0, 0.34) ${TEXTAREA_FADE_SOFT_STOP}px, black ${TEXTAREA_FADE_HARD_STOP}px, black 100%)`
+}
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024) {
@@ -66,19 +96,62 @@ export function ChatComposer({
   const [isClientReady, setIsClientReady] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const prefersReducedMotion = useReducedMotion()
   const [localUploading, setLocalUploading] = useState(false)
   const [uploadingName, setUploadingName] = useState<string | null>(null)
   const [uploadingSize, setUploadingSize] = useState<number | null>(null)
+  const [textareaMetrics, setTextareaMetrics] = useState<TextareaMetrics>({
+    isMultiline: false,
+    canScrollUp: false,
+    canScrollDown: false,
+  })
 
   const effectiveUploading = isUploading || localUploading
   const hasAttachmentStack = effectiveUploading || attachedFiles.length > 0
   const isChoiceMode = showAnswerPreferencePrompt
+  const usesExpandedComposer =
+    hasAttachmentStack || isChoiceMode || textareaMetrics.isMultiline
   const isSendActive =
     input.trim().length > 0 &&
     !isLoading &&
     !effectiveUploading &&
     !isChoiceMode
   const showLightLogoOnButton = isSendActive
+  const layoutTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : {
+        type: "spring" as const,
+        stiffness: 360,
+        damping: 34,
+        mass: 0.72,
+      }
+  const contentPadding = hasAttachmentStack
+    ? "px-3 pt-2 pb-3"
+    : textareaMetrics.isMultiline
+      ? "px-3 py-3"
+      : "px-3 py-2"
+  const textareaMaskImage = getTextareaMaskImage(textareaMetrics)
+
+  function syncTextareaMetrics(element: HTMLTextAreaElement) {
+    const nextMetrics = {
+      isMultiline: element.scrollHeight > SINGLE_LINE_TEXTAREA_HEIGHT + 4,
+      canScrollUp: element.scrollTop > 2,
+      canScrollDown:
+        element.scrollTop + element.clientHeight < element.scrollHeight - 2,
+    }
+
+    setTextareaMetrics((currentMetrics) => {
+      if (
+        currentMetrics.isMultiline === nextMetrics.isMultiline &&
+        currentMetrics.canScrollUp === nextMetrics.canScrollUp &&
+        currentMetrics.canScrollDown === nextMetrics.canScrollDown
+      ) {
+        return currentMetrics
+      }
+
+      return nextMetrics
+    })
+  }
 
   useEffect(() => {
     setIsClientReady(true)
@@ -89,7 +162,8 @@ export function ChatComposer({
     if (!element) return
 
     element.style.height = "auto"
-    element.style.height = `${Math.min(element.scrollHeight, 200)}px`
+    element.style.height = `${Math.min(element.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`
+    syncTextareaMetrics(element)
   }, [input])
 
   const canSubmit =
@@ -113,6 +187,13 @@ export function ChatComposer({
       event.preventDefault()
       requestSubmit()
     }
+  }
+
+  function handleTextareaScroll() {
+    const element = textareaRef.current
+    if (!element) return
+
+    syncTextareaMetrics(element)
   }
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -160,9 +241,26 @@ export function ChatComposer({
   }
 
   return (
-    <div className="px-4 pt-3 pb-5">
-      <div className="mx-auto max-w-3xl">
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/95 shadow-[0_14px_34px_rgba(2,6,23,0.14)] backdrop-blur-xl transition-[border-color,box-shadow] focus-within:border-border focus-within:shadow-[0_20px_44px_rgba(2,6,23,0.2)] dark:shadow-[0_16px_38px_rgba(0,0,0,0.4)] dark:focus-within:shadow-[0_22px_48px_rgba(0,0,0,0.5)]">
+    <div data-testid="chat-composer" className="px-4 pt-3 pb-5">
+      <div className="mx-auto max-w-4xl">
+        <motion.div
+          layout
+          initial={false}
+          transition={layoutTransition}
+          animate={
+            prefersReducedMotion
+              ? undefined
+              : { borderRadius: usesExpandedComposer ? 28 : 999 }
+          }
+          style={
+            prefersReducedMotion
+              ? { borderRadius: usesExpandedComposer ? 28 : 999 }
+              : undefined
+          }
+          className={cn(
+            "relative overflow-hidden border border-border/70 bg-card shadow-[0_14px_34px_rgba(2,6,23,0.14)] transition-[border-color,box-shadow] focus-within:border-border focus-within:shadow-[0_20px_44px_rgba(2,6,23,0.2)] dark:shadow-[0_16px_38px_rgba(0,0,0,0.4)] dark:focus-within:shadow-[0_22px_48px_rgba(0,0,0,0.5)]"
+          )}
+        >
           {hasAttachmentStack && (
             <div className="px-3 pt-3 pb-1">
               <div className="flex flex-col gap-2">
@@ -235,7 +333,7 @@ export function ChatComposer({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.985 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="px-3 pt-3 pb-20"
+              className="px-3 pt-3 pb-3"
             >
               <div className="rounded-[1.2rem] border border-border/70 bg-background/88 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-md">
                 <div className="flex items-start justify-between gap-3 px-1 pb-2">
@@ -287,33 +385,27 @@ export function ChatComposer({
               </div>
             </motion.div>
           ) : (
-            <>
-              <textarea
-                ref={textareaRef}
-                data-testid="chat-input"
-                value={input}
-                onChange={(event) => onInputChange(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask anything..."
-                disabled={disabled || showAnswerPreferencePrompt}
-                rows={1}
+            <motion.div
+              layout
+              transition={layoutTransition}
+              className={cn(
+                "grid gap-2 sm:gap-2.5",
+                contentPadding,
+                textareaMetrics.isMultiline
+                  ? "grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto]"
+                  : "grid-cols-[auto_minmax(0,1fr)_auto] items-center"
+              )}
+            >
+              <motion.div
+                layout
+                transition={layoutTransition}
                 className={cn(
-                  "w-full resize-none rounded-[1.75rem] bg-card/95 mask-[linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] px-4 pb-18 text-sm leading-relaxed [-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_74%,transparent_100%)] placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50",
-                  hasAttachmentStack ? "pt-3" : "pt-4"
+                  "flex min-w-0 shrink-0 items-center gap-1.5",
+                  textareaMetrics.isMultiline
+                    ? "col-start-1 row-start-2"
+                    : "col-start-1 row-start-1"
                 )}
-                style={{ minHeight: "52px", maxHeight: "200px" }}
-              />
-            </>
-          )}
-
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-2 bottom-0 h-24 rounded-b-[1.35rem] bg-linear-to-t from-card via-card/90 to-card/0"
-          />
-
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-3 pb-3">
-            <div className="flex w-full items-center justify-between rounded-[1.2rem] border border-border/60 bg-background/80 px-1.5 py-1.5 backdrop-blur-md">
-              <div className="flex items-center gap-1">
+              >
                 {onFileAttach && (
                   <>
                     <input
@@ -337,9 +429,9 @@ export function ChatComposer({
                             attachedFiles.length >= 3
                           }
                           className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors",
+                            "flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors",
                             attachedFiles.length < 3 && !effectiveUploading
-                              ? "bg-transparent hover:bg-muted hover:text-foreground"
+                              ? "bg-transparent hover:bg-foreground/6 hover:text-foreground"
                               : "opacity-40"
                           )}
                           aria-label="Attach file"
@@ -347,7 +439,7 @@ export function ChatComposer({
                           {effectiveUploading ? (
                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
                           ) : (
-                            <Paperclip className="h-4 w-4" />
+                            <Paperclip className="h-4.5 w-4.5" />
                           )}
                         </button>
                       </TooltipTrigger>
@@ -366,94 +458,136 @@ export function ChatComposer({
                   <button
                     type="button"
                     disabled
-                    className="flex h-7 items-center gap-1 rounded-full px-2.5 text-xs font-medium text-muted-foreground opacity-60"
+                    className="flex h-10 max-w-38 items-center gap-1.5 rounded-full border border-border/65 bg-background/72 px-3.5 text-sm font-medium text-muted-foreground opacity-60"
                   >
-                    {getModelLabel(model)}
+                    <span className="min-w-0 truncate">
+                      {getModelLabel(model)}
+                    </span>
                   </button>
                 )}
-              </div>
+              </motion.div>
 
-              {isLoading && onStop ? (
-                <motion.button
-                  type="button"
-                  onClick={onStop}
-                  data-testid="chat-stop"
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
-                  aria-label="Stop"
-                  animate={{
-                    scale: [1, 1.08, 1],
-                    boxShadow: [
-                      "0 0 0 0 rgba(255,255,255,0.28)",
-                      "0 0 0 6px rgba(255,255,255,0.06)",
-                      "0 0 0 0 rgba(255,255,255,0.28)",
-                    ],
+              <motion.div
+                layout
+                transition={layoutTransition}
+                className={cn(
+                  "relative min-w-0 overflow-hidden",
+                  textareaMetrics.isMultiline
+                    ? "col-span-2 col-start-1 row-start-1"
+                    : "col-start-2 row-start-1 flex min-h-10 items-center"
+                )}
+                style={{
+                  maskImage: textareaMaskImage,
+                  WebkitMaskImage: textareaMaskImage,
+                }}
+              >
+                <textarea
+                  ref={textareaRef}
+                  data-testid="chat-input"
+                  value={input}
+                  onChange={(event) => onInputChange(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onScroll={handleTextareaScroll}
+                  placeholder="Ask anything..."
+                  disabled={disabled || showAnswerPreferencePrompt}
+                  rows={1}
+                  className="block w-full resize-none bg-transparent px-1 py-2 text-[15px] leading-6 text-foreground placeholder:text-muted-foreground/62 focus:outline-none disabled:opacity-50 sm:text-sm"
+                  style={{
+                    minHeight: `${SINGLE_LINE_TEXTAREA_HEIGHT}px`,
+                    maxHeight: `${MAX_TEXTAREA_HEIGHT}px`,
                   }}
-                  transition={{
-                    duration: 1.15,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                >
-                  <Square className="h-3.5 w-3.5 fill-background" />
-                </motion.button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={requestSubmit}
-                  data-testid="chat-send"
-                  disabled={
-                    !canSubmit || isChoiceMode || (isLoading && !onStop)
-                  }
-                  className={cn(
-                    "group flex h-8 w-8 items-center justify-center rounded-full transition-all duration-150",
-                    isSendActive
-                      ? "bg-foreground text-background hover:scale-[1.04] hover:opacity-90"
-                      : isLoading
-                        ? "bg-foreground text-background opacity-80"
-                        : "border border-border/70 bg-muted/70 text-muted-foreground"
-                  )}
-                  aria-label={isLoading ? "Loading..." : "Send"}
-                >
-                  {isLoading && !onStop ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
-                  ) : (
-                    <>
-                      {/* Contrast-aware logo pairing: dark button gets light logo, light button gets dark logo. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={
-                          showLightLogoOnButton
-                            ? "/vera-white-short.png"
-                            : "/vera-black-short.png"
-                        }
-                        alt=""
-                        aria-hidden="true"
-                        loading="eager"
-                        width={18}
-                        height={18}
-                        className="block transition-transform duration-150 group-hover:scale-105 dark:hidden"
-                      />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={
-                          showLightLogoOnButton
-                            ? "/vera-black-short.png"
-                            : "/vera-white-short.png"
-                        }
-                        alt=""
-                        aria-hidden="true"
-                        loading="eager"
-                        width={18}
-                        height={18}
-                        className="hidden transition-transform duration-150 group-hover:scale-105 dark:block"
-                      />
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+                />
+              </motion.div>
+
+              <motion.div
+                layout
+                transition={layoutTransition}
+                className={cn(
+                  "flex shrink-0 items-center",
+                  textareaMetrics.isMultiline
+                    ? "col-start-2 row-start-2 self-end justify-self-end"
+                    : "col-start-3 row-start-1"
+                )}
+              >
+                {isLoading && onStop ? (
+                  <motion.button
+                    type="button"
+                    onClick={onStop}
+                    data-testid="chat-stop"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
+                    aria-label="Stop"
+                    animate={{
+                      scale: [1, 1.08, 1],
+                      boxShadow: [
+                        "0 0 0 0 rgba(255,255,255,0.28)",
+                        "0 0 0 6px rgba(255,255,255,0.06)",
+                        "0 0 0 0 rgba(255,255,255,0.28)",
+                      ],
+                    }}
+                    transition={{
+                      duration: 1.15,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <Square className="h-3.5 w-3.5 fill-background" />
+                  </motion.button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={requestSubmit}
+                    data-testid="chat-send"
+                    disabled={
+                      !canSubmit || isChoiceMode || (isLoading && !onStop)
+                    }
+                    className={cn(
+                      "group flex h-10 w-10 items-center justify-center rounded-full transition-all duration-150",
+                      isSendActive
+                        ? "bg-foreground text-background hover:scale-[1.04] hover:opacity-90"
+                        : isLoading
+                          ? "bg-foreground text-background opacity-80"
+                          : "border border-border/70 bg-muted/70 text-muted-foreground"
+                    )}
+                    aria-label={isLoading ? "Loading..." : "Send"}
+                  >
+                    {isLoading && !onStop ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                    ) : (
+                      <>
+                        <img
+                          src={
+                            showLightLogoOnButton
+                              ? "/vera-white-short.png"
+                              : "/vera-black-short.png"
+                          }
+                          alt=""
+                          aria-hidden="true"
+                          loading="eager"
+                          width={18}
+                          height={18}
+                          className="block transition-transform duration-150 group-hover:scale-105 dark:hidden"
+                        />
+                        <img
+                          src={
+                            showLightLogoOnButton
+                              ? "/vera-black-short.png"
+                              : "/vera-white-short.png"
+                          }
+                          alt=""
+                          aria-hidden="true"
+                          loading="eager"
+                          width={18}
+                          height={18}
+                          className="hidden transition-transform duration-150 group-hover:scale-105 dark:block"
+                        />
+                      </>
+                    )}
+                  </button>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </motion.div>
 
         <p className="mt-2 text-center text-xs text-muted-foreground/85">
           Press Enter to send. Press Ctrl+Enter (Windows/Linux) or Cmd+Enter

@@ -172,20 +172,20 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul className="list-disc space-y-3 pl-5">
             <li>
-              <span className="font-medium text-foreground">Anthropic</span> —
+              <span className="font-medium text-foreground">Anthropic</span> -
               Your messages, uploaded document content, and agent system prompts
               are transmitted to Anthropic&apos;s API to generate AI responses.
               Anthropic&apos;s privacy policy governs how they process that
               data. We transmit only what is necessary to fulfil your request.
             </li>
             <li>
-              <span className="font-medium text-foreground">Supabase</span> — We
+              <span className="font-medium text-foreground">Supabase</span> - We
               use Supabase for PostgreSQL database hosting, file storage, and
               authentication. Your account data, chat transcripts, files, and
               memories are stored in Supabase infrastructure.
             </li>
             <li>
-              <span className="font-medium text-foreground">Stripe</span> —
+              <span className="font-medium text-foreground">Stripe</span> -
               Stripe processes all subscription payments. When you subscribe,
               you interact directly with Stripe&apos;s payment interface. We
               receive billing status and subscription metadata from Stripe via
@@ -193,13 +193,13 @@ export default function PrivacyPolicyPage() {
               details.
             </li>
             <li>
-              <span className="font-medium text-foreground">Vercel</span> — The
+              <span className="font-medium text-foreground">Vercel</span> - The
               Vera AI application is hosted on Vercel&apos;s infrastructure.
               Request logs and performance data may be collected by Vercel in
               accordance with their data processing agreement.
             </li>
             <li>
-              <span className="font-medium text-foreground">Google</span> — If
+              <span className="font-medium text-foreground">Google</span> - If
               you use Google OAuth to sign in, Google transmits your name, email
               address, and profile picture to our authentication provider. We do
               not receive your Google password or access to your Google account
@@ -290,31 +290,31 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <span className="font-medium text-foreground">Access</span> —
+              <span className="font-medium text-foreground">Access</span> -
               request a copy of the data we hold about you.
             </li>
             <li>
-              <span className="font-medium text-foreground">Correction</span> —
+              <span className="font-medium text-foreground">Correction</span> -
               request that inaccurate data be corrected.
             </li>
             <li>
-              <span className="font-medium text-foreground">Deletion</span> —
+              <span className="font-medium text-foreground">Deletion</span> -
               request that your data be deleted. You can initiate this directly
               from your account settings or by contacting us.
             </li>
             <li>
-              <span className="font-medium text-foreground">Portability</span> —
+              <span className="font-medium text-foreground">Portability</span> -
               request a machine-readable export of your data.
             </li>
             <li>
-              <span className="font-medium text-foreground">Objection</span> —
+              <span className="font-medium text-foreground">Objection</span> -
               object to certain processing activities.
             </li>
             <li>
               <span className="font-medium text-foreground">
                 Withdrawal of consent
               </span>{" "}
-              — where processing is based on consent, you may withdraw it at any
+              - where processing is based on consent, you may withdraw it at any
               time.
             </li>
           </ul>

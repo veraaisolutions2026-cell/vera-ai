@@ -39,7 +39,7 @@ type AnthropicModelInfo = {
 
 const FAMILY_DESCRIPTIONS: Record<ClaudeFamily, string> = {
   haiku: "Fastest for lightweight tasks",
-  sonnet: "Balanced speed and reasoning — recommended",
+  sonnet: "Balanced speed and reasoning - recommended",
   opus: "Most capable for complex reasoning",
 }
 

@@ -101,7 +101,7 @@ export function ProfileSettings({ user }: Props) {
               </div>
             )}
 
-            {/* Upload overlay — email users only */}
+            {/* Upload overlay - email users only */}
             {!isGoogleUser && (
               <>
                 <button

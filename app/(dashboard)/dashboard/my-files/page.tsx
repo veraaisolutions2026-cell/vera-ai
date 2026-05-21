@@ -4,7 +4,7 @@ import { listKnowledgeBaseFiles } from "@/lib/db/knowledge-base"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
 
 export const metadata = {
-  title: "My Files — Vera AI",
+  title: "My Files - Vera AI",
 }
 
 function formatBytes(size: number): string {

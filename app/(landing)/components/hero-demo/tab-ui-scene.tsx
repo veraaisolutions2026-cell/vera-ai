@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils"
 import { EASE, getElCenter } from "./types"
 
-// ── Scene 1 — Tab UI ──────────────────────────────────────────────
+// ── Scene 1 - Tab UI ──────────────────────────────────────────────
 // No window chrome. Just a pill segmented control that the cursor
 // clicks to switch from "Chat" to "Agents", revealing agent cards.
 export function TabUiScene({
@@ -27,7 +27,7 @@ export function TabUiScene({
   onCursor: (s: { x: number; y: number; clicking: boolean }) => void
 }) {
   const [activeTab, setActiveTab] = useState<"chat" | "agents">("chat")
-  // Wrapping div for cursor targeting — getBoundingClientRect works on the div
+  // Wrapping div for cursor targeting - getBoundingClientRect works on the div
   const agentsTabWrapRef = useRef<HTMLDivElement>(null)
   const traversPillRef = useRef<HTMLButtonElement>(null)
 
@@ -159,7 +159,7 @@ export function TabUiScene({
   )
 }
 
-// ── Chat tab content — blurred conversation placeholder ───────────
+// ── Chat tab content - blurred conversation placeholder ───────────
 function ChatContent() {
   return (
     <div className="flex flex-col gap-3">
@@ -193,7 +193,7 @@ function ChatContent() {
   )
 }
 
-// ── Agents tab content — mini agent card grid ─────────────────────
+// ── Agents tab content - mini agent card grid ─────────────────────
 function AgentsContent({
   traversPillRef,
 }: {

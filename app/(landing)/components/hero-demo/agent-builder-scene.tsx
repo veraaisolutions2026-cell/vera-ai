@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils"
 import { EASE, getElCenter } from "./types"
 
-// ── Templates — these are the real starter prompts ────────────────
+// ── Templates - these are the real starter prompts ────────────────
 // Travers is an agent, NOT a template. Templates are plain-language
 // descriptions that the user types to build a new agent.
 const TEMPLATES = [
@@ -39,7 +39,7 @@ const TEMPLATES = [
 
 type Template = (typeof TEMPLATES)[number]
 
-// ── Scene 2 — Agent Builder ───────────────────────────────────────
+// ── Scene 2 - Agent Builder ───────────────────────────────────────
 // No window chrome. Clean builder header + template cards + composer.
 // Cursor clicks the first template, input fills via typewriter,
 // then cursor moves to Send and the message bubble appears.
@@ -133,7 +133,7 @@ export function AgentBuilderScene({
       data-testid="demo-scene-agent-builder"
       className="flex h-full w-full flex-col"
     >
-      {/* Minimal header — no window chrome */}
+      {/* Minimal header - no window chrome */}
       <div className="flex shrink-0 items-center gap-2.5 px-5 py-4">
         <ArrowLeft className="h-3.5 w-3.5 text-muted-foreground/40" />
         <PenLine className="h-3.5 w-3.5 text-muted-foreground/40" />
@@ -220,7 +220,7 @@ export function AgentBuilderScene({
 
 // ── Template card ─────────────────────────────────────────────────
 // Inspired by clean bordered pill cards: icon left, label right.
-// Selected state uses a subtle foreground tint — no amber/color.
+// Selected state uses a subtle foreground tint - no amber/color.
 function TemplateCard({
   tmpl,
   selected,

@@ -128,7 +128,7 @@ export function ChatManager({ chats }: { chats: Chat[] }) {
                   isSelected ? "bg-foreground/5" : "hover:bg-foreground/[0.035]"
                 )}
               >
-                {/* Checkbox — hidden until hover or selected */}
+                {/* Checkbox - hidden until hover or selected */}
                 <div
                   className={cn(
                     "shrink-0 transition-opacity duration-150",

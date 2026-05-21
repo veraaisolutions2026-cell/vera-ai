@@ -16,7 +16,7 @@ export function Hero() {
       aria-label="hero"
       className="mx-auto flex w-full max-w-7xl flex-col items-center gap-12 px-4 pt-2 pb-4 sm:px-6 lg:flex-row lg:items-stretch lg:gap-16"
     >
-      {/* Left column — copy */}
+      {/* Left column - copy */}
       <div className="flex w-full flex-col items-center justify-center text-center lg:w-1/2">
         <motion.h1
           initial={{ opacity: 0, y }}
@@ -48,7 +48,7 @@ export function Hero() {
         </motion.div>
       </div>
 
-      {/* Right column — video */}
+      {/* Right column - video */}
       <motion.div
         initial={{ opacity: 0, scale: reduce ? 1 : 0.96, y: reduce ? 0 : 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

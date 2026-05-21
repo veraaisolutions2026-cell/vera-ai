@@ -184,7 +184,7 @@ export async function GET(
     })
   }
 
-  // PDF — generate on the server using @react-pdf/renderer
+  // PDF - generate on the server using @react-pdf/renderer
   // Lazy import to avoid SSR bundle bloat
   const { renderToBuffer, Document, Page, Text, View, StyleSheet } =
     await import("@react-pdf/renderer")

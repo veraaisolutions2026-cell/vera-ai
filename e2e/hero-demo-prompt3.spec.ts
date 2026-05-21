@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 
-test.describe("Hero Demo — Prompt 3 (AI Thinking + Agent Result + Chat Transition)", () => {
+test.describe("Hero Demo - Prompt 3 (AI Thinking + Agent Result + Chat Transition)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/")
     await page.waitForSelector('[data-testid="hero-demo"]', { timeout: 10_000 })

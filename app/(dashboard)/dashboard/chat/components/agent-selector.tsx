@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Bot, Check, ChevronDown } from "lucide-react"
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { Bot, Check, ChevronDown, Search } from "lucide-react"
 import {
   Popover,
   PopoverContent,
@@ -19,17 +19,37 @@ type Props = {
 
 export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
   const [contentSide, setContentSide] = useState<"top" | "bottom">("bottom")
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const deferredQuery = useDeferredValue(query)
+  const orderedAgents = useMemo(
+    () =>
+      [...agents].sort((left, right) =>
+        left.name.localeCompare(right.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        })
+      ),
+    [agents]
+  )
+  const normalizedQuery = deferredQuery.trim().toLowerCase()
+  const filteredAgents = useMemo(() => {
+    if (!normalizedQuery) {
+      return orderedAgents
+    }
 
-  const builtins = agents.filter((a) => a.is_builtin)
-  const custom = agents.filter((a) => !a.is_builtin)
+    return orderedAgents.filter((agent) => {
+      const haystack = `${agent.name} ${agent.description ?? ""}`.toLowerCase()
+      return haystack.includes(normalizedQuery)
+    })
+  }, [normalizedQuery, orderedAgents])
 
   useEffect(() => {
     if (!open) return
 
     const VIEWPORT_PADDING = 8
-    const ESTIMATED_CONTENT_HEIGHT = 304
+    const ESTIMATED_CONTENT_HEIGHT = 360
 
     const updatePopoverSide = () => {
       const trigger = triggerRef.current
@@ -57,6 +77,12 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
     return () => {
       window.removeEventListener("resize", updatePopoverSide)
       window.removeEventListener("scroll", updatePopoverSide, true)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("")
     }
   }, [open])
 
@@ -92,33 +118,44 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
         align="start"
         collisionPadding={8}
         avoidCollisions
-        className="max-h-[min(18rem,calc(100vh-1rem))] w-64 overflow-y-auto p-1"
+        className="w-72 p-0"
         sideOffset={8}
       >
-        <button
-          data-testid="chat-agent-option-none"
-          className={cn(
-            "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
-            !selectedAgent && "text-muted-foreground"
-          )}
-          onClick={() => {
-            onSelect(null)
-            setOpen(false)
-          }}
-        >
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/6">
-            <Bot className="h-3.5 w-3.5" />
+        <div className="border-b border-border/50 p-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/70" />
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search agents"
+              data-testid="chat-agent-search"
+              className="h-9 w-full rounded-full border border-border/60 bg-background px-9 text-sm text-foreground transition-colors outline-none placeholder:text-muted-foreground/70 focus:border-border"
+            />
           </div>
-          <span className="flex-1 text-left">No agent</span>
-          {!selectedAgent && <Check className="h-3.5 w-3.5 opacity-60" />}
-        </button>
+        </div>
 
-        {builtins.length > 0 && (
-          <>
-            <p className="mt-1 px-3 py-1 text-xs font-semibold tracking-widest text-muted-foreground/60 uppercase">
-              Built-in
-            </p>
-            {builtins.map((agent) => (
+        <div className="max-h-[min(18rem,calc(100vh-4.75rem))] overflow-y-auto p-1">
+          <button
+            data-testid="chat-agent-option-none"
+            className={cn(
+              "mb-1 flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
+              !selectedAgent && "text-muted-foreground"
+            )}
+            onClick={() => {
+              onSelect(null)
+              setOpen(false)
+            }}
+          >
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/6">
+              <Bot className="h-3.5 w-3.5" />
+            </div>
+            <span className="flex-1 text-left">No agent</span>
+            {!selectedAgent && <Check className="h-3.5 w-3.5 opacity-60" />}
+          </button>
+
+          {filteredAgents.length > 0 ? (
+            filteredAgents.map((agent) => (
               <button
                 key={agent.id}
                 data-testid="chat-agent-option"
@@ -144,44 +181,13 @@ export function AgentSelector({ agents, selectedAgent, onSelect }: Props) {
                   <Check className="h-3.5 w-3.5 shrink-0 opacity-60" />
                 )}
               </button>
-            ))}
-          </>
-        )}
-
-        {custom.length > 0 && (
-          <>
-            <p className="mt-1 px-3 py-1 text-xs font-semibold tracking-widest text-muted-foreground/60 uppercase">
-              My agents
-            </p>
-            {custom.map((agent) => (
-              <button
-                key={agent.id}
-                data-testid="chat-agent-option"
-                data-agent-id={agent.id}
-                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
-                onClick={() => {
-                  onSelect(agent)
-                  setOpen(false)
-                }}
-              >
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground/6">
-                  <AgentIcon name={agent.icon} className="h-3.5 w-3.5" />
-                </div>
-                <div className="min-w-0 flex-1 text-left">
-                  <p className="truncate leading-none">{agent.name}</p>
-                  {agent.description && (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {agent.description}
-                    </p>
-                  )}
-                </div>
-                {selectedAgent?.id === agent.id && (
-                  <Check className="h-3.5 w-3.5 shrink-0 opacity-60" />
-                )}
-              </button>
-            ))}
-          </>
-        )}
+            ))
+          ) : (
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No agents match your search.
+            </div>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   )
