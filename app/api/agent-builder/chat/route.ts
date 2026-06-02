@@ -15,11 +15,13 @@ import { recordUsageEvent } from "@/lib/db/usage-events"
 import { getResolvedAcaPrompt } from "@/lib/aca-prompt"
 import { DEFAULT_ACA_PROMPT } from "@/lib/default-aca-prompt"
 import { getUsageAvailability } from "@/lib/db/usage-limits"
-import { resolveAnthropicProviderContext } from "@/lib/ai-provider"
+import { resolveGatewayProviderContext } from "@/lib/ai-provider"
 import {
-  normalizeModelId,
+  AGENT_BASE_MODEL_IDS,
+  AGENT_BUILDER_MODEL_ID,
+  resolveGatewayFallbackModelIds,
   resolveGatewayModelId,
-  resolveModelId,
+  normalizeModelId,
 } from "@/lib/models"
 
 export const maxDuration = 60
@@ -38,9 +40,6 @@ const NO_EMOJI_SUFFIX =
 
 const TRAVERS_IDENTITY =
   "\n\nYou are Travers, an AI agent architect built by Vera AI. If anyone asks who you are, introduce yourself as Travers - not Claude, not any other AI product. Explain that you are Travers, the agent design assistant inside Vera AI."
-
-const AGENT_BUILDER_MODEL_ID = "claude-sonnet-4.6"
-const AGENT_BASE_MODEL_IDS = ["claude-sonnet-4.6", "claude-haiku-4.5"] as const
 
 function getTextFromParts(parts: UIMessage["parts"]): string {
   let text = ""
@@ -107,11 +106,12 @@ export async function POST(req: Request) {
   const systemPrompt =
     (acaPrompt ?? DEFAULT_ACA_PROMPT) + TRAVERS_IDENTITY + NO_EMOJI_SUFFIX
   const agentBuilderModelId = normalizeModelId(AGENT_BUILDER_MODEL_ID)
-  const directModelId = resolveModelId(agentBuilderModelId)
   const gatewayModelId = resolveGatewayModelId(agentBuilderModelId)
-  const providerContext = resolveAnthropicProviderContext({
-    directModelId,
+  const fallbackGatewayModelIds =
+    resolveGatewayFallbackModelIds(agentBuilderModelId)
+  const providerContext = resolveGatewayProviderContext({
     gatewayModelId,
+    fallbackGatewayModelIds,
   })
   const timingTracker = createAIRequestTimingTracker()
   const languageModel = AI_DEVTOOLS_ENABLED
@@ -130,9 +130,15 @@ export async function POST(req: Request) {
   const forceCreateAgentTool = shouldForceCreateAgentTool(latestUserText)
 
   const result = streamText({
-    // Anthropic can return transient overload responses; retry to keep UX stable.
+    // Gateway-routed providers can return transient overload responses; retry
+    // to keep UX stable.
     maxRetries: 4,
     model: languageModel,
+    providerOptions: providerContext.gatewayProviderOptions
+      ? {
+          gateway: providerContext.gatewayProviderOptions,
+        }
+      : undefined,
     system: systemPrompt,
     messages: await convertToModelMessages(messages),
     toolChoice: forceCreateAgentTool
@@ -173,7 +179,7 @@ export async function POST(req: Request) {
           base_model: z
             .enum(AGENT_BASE_MODEL_IDS)
             .describe(
-              "Model: sonnet for complex reasoning tasks, haiku for fast/simple tasks"
+              "Model: sonnet for general complex work, haiku for speed, opus for the deepest reasoning"
             ),
         }),
         execute: async ({
@@ -244,8 +250,8 @@ export async function POST(req: Request) {
           availability: providerContext.availability,
           inputModelId: agentBuilderModelId,
           canonicalModelId: agentBuilderModelId,
-          directModelId,
           gatewayModelId,
+          fallbackGatewayModelIds,
           timing,
         }),
       })

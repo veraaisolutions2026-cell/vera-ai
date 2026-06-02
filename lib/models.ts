@@ -1,11 +1,10 @@
 export type ModelId = string
-export type DirectModelId = string
 export type GatewayModelId = string
 
 export type ModelOption = {
   id: string
-  directModelId: DirectModelId
   gatewayModelId: GatewayModelId
+  fallbackGatewayModelIds: GatewayModelId[]
   family: "haiku" | "sonnet" | "opus"
   version: string
   label: string
@@ -17,24 +16,12 @@ export type ModelOption = {
 
 type ClaudeFamily = ModelOption["family"]
 
+const MODEL_ID_WITH_PROVIDER_PREFIX = /^[a-z0-9-]+\//i
+
 const FAMILY_LABELS: Record<ClaudeFamily, string> = {
   haiku: "Vera Mini",
   sonnet: "Vera Pro",
   opus: "Vera Max",
-}
-
-type AnthropicModelInfo = {
-  id: string
-  created_at?: string
-  display_name?: string
-  capabilities?: {
-    thinking?: {
-      supported?: boolean
-      types?: {
-        adaptive?: { supported?: boolean }
-      }
-    }
-  }
 }
 
 const FAMILY_DESCRIPTIONS: Record<ClaudeFamily, string> = {
@@ -58,8 +45,8 @@ function stripAnthropicProviderPrefix(id: string): string {
 export const FALLBACK_MODELS: ModelOption[] = [
   {
     id: "claude-haiku-4.5",
-    directModelId: "claude-haiku-4-5-20251001",
     gatewayModelId: "anthropic/claude-haiku-4.5",
+    fallbackGatewayModelIds: ["google/gemini-3.1-flash-lite"],
     family: "haiku",
     version: "4.5",
     label: FAMILY_LABELS.haiku,
@@ -69,8 +56,8 @@ export const FALLBACK_MODELS: ModelOption[] = [
   },
   {
     id: "claude-sonnet-4.6",
-    directModelId: "claude-sonnet-4-6",
     gatewayModelId: "anthropic/claude-sonnet-4.6",
+    fallbackGatewayModelIds: ["google/gemini-3.5-flash"],
     family: "sonnet",
     version: "4.6",
     label: FAMILY_LABELS.sonnet,
@@ -79,11 +66,11 @@ export const FALLBACK_MODELS: ModelOption[] = [
     supportsThinking: true,
   },
   {
-    id: "claude-opus-4.6",
-    directModelId: "claude-opus-4-6",
-    gatewayModelId: "anthropic/claude-opus-4.6",
+    id: "claude-opus-4.8",
+    gatewayModelId: "anthropic/claude-opus-4.8",
+    fallbackGatewayModelIds: ["google/gemini-3.1-pro-preview"],
     family: "opus",
-    version: "4.6",
+    version: "4.8",
     label: FAMILY_LABELS.opus,
     fullLabel: FAMILY_LABELS.opus,
     description: FAMILY_DESCRIPTIONS.opus,
@@ -100,12 +87,28 @@ const DEFAULT_FALLBACK_MODEL = FALLBACK_MODELS[0]
 const MODEL_ID_ALIASES: Record<string, string> = Object.fromEntries(
   FALLBACK_MODELS.flatMap((model) => [
     [model.id, model.id],
-    [model.directModelId, model.id],
     [model.gatewayModelId, model.id],
+    ...model.fallbackGatewayModelIds.map(
+      (gatewayModelId) => [gatewayModelId, model.id] as const
+    ),
   ])
 )
 
 MODEL_ID_ALIASES["claude-haiku-4-5"] = "claude-haiku-4.5"
+MODEL_ID_ALIASES["claude-sonnet-4-6"] = "claude-sonnet-4.6"
+MODEL_ID_ALIASES["claude-opus-4-6"] = "claude-opus-4.8"
+MODEL_ID_ALIASES["claude-opus-4.6"] = "claude-opus-4.8"
+MODEL_ID_ALIASES["google/gemini-2.5-flash-lite"] = "claude-haiku-4.5"
+MODEL_ID_ALIASES["google/gemini-2.5-flash"] = "claude-sonnet-4.6"
+MODEL_ID_ALIASES["google/gemini-2.5-pro"] = "claude-opus-4.8"
+
+export const TITLE_GENERATION_MODEL_ID = "claude-haiku-4.5" as const
+export const AGENT_BUILDER_MODEL_ID = "claude-sonnet-4.6" as const
+export const AGENT_BASE_MODEL_IDS = [
+  AGENT_BUILDER_MODEL_ID,
+  "claude-haiku-4.5",
+  "claude-opus-4.8",
+] as const
 
 function parseClaudeModelId(
   id: string
@@ -147,82 +150,6 @@ function parseClaudeModelId(
   return null
 }
 
-function shouldPreferModel(
-  candidate: ModelOption,
-  current: ModelOption
-): boolean {
-  const candidateTime = candidate.createdAt
-    ? Date.parse(candidate.createdAt)
-    : 0
-  const currentTime = current.createdAt ? Date.parse(current.createdAt) : 0
-
-  if (candidateTime !== currentTime) {
-    return candidateTime > currentTime
-  }
-
-  const [candidateMajor, candidateMinor] = candidate.version
-    .split(".")
-    .map((n) => Number(n))
-  const [currentMajor, currentMinor] = current.version
-    .split(".")
-    .map((n) => Number(n))
-
-  if (candidateMajor !== currentMajor) return candidateMajor > currentMajor
-  if (candidateMinor !== currentMinor) return candidateMinor > currentMinor
-
-  const candidateDated = /-\d{8}$/.test(candidate.directModelId)
-  const currentDated = /-\d{8}$/.test(current.directModelId)
-  if (candidateDated !== currentDated) return !candidateDated
-
-  return false
-}
-
-function toModelOption(model: AnthropicModelInfo): ModelOption | null {
-  const parsed = parseClaudeModelId(model.id)
-  if (!parsed) return null
-
-  const brandedLabel = FAMILY_LABELS[parsed.family]
-  const canonicalId = toCanonicalModelId(parsed.family, parsed.version)
-
-  return {
-    id: canonicalId,
-    directModelId: stripAnthropicProviderPrefix(model.id),
-    gatewayModelId: toGatewayAnthropicModelId(canonicalId),
-    family: parsed.family,
-    version: parsed.version,
-    label: brandedLabel,
-    fullLabel: brandedLabel,
-    description: FAMILY_DESCRIPTIONS[parsed.family],
-    createdAt: model.created_at,
-    supportsThinking:
-      model.capabilities?.thinking?.supported === true &&
-      model.capabilities?.thinking?.types?.adaptive?.supported === true,
-  }
-}
-
-export function buildModelOptionsFromAnthropic(
-  models: AnthropicModelInfo[]
-): ModelOption[] {
-  const byFamily = new Map<ClaudeFamily, ModelOption>()
-
-  for (const raw of models) {
-    const option = toModelOption(raw)
-    if (!option) continue
-
-    const existing = byFamily.get(option.family)
-    if (!existing || shouldPreferModel(option, existing)) {
-      byFamily.set(option.family, option)
-    }
-  }
-
-  const familyOrder: ClaudeFamily[] = ["haiku", "sonnet", "opus"]
-  return familyOrder.map((family) => {
-    const live = byFamily.get(family)
-    if (live) return live
-    return FALLBACK_MODELS.find((m) => m.family === family)!
-  })
-}
-
 export function normalizeModelId(id?: string): ModelId {
   if (!id?.trim()) return DEFAULT_CHAT_MODEL_ID
 
@@ -235,9 +162,14 @@ export function normalizeModelId(id?: string): ModelId {
   if (strippedMatch) return strippedMatch
 
   const parsed = parseClaudeModelId(trimmed)
-  if (!parsed) return stripped
+  if (parsed) {
+    return (
+      FALLBACK_MODELS.find((model) => model.family === parsed.family)?.id ??
+      toCanonicalModelId(parsed.family, parsed.version)
+    )
+  }
 
-  return toCanonicalModelId(parsed.family, parsed.version)
+  return stripped
 }
 
 export function areEquivalentModelIds(
@@ -252,17 +184,8 @@ function getFallbackModelOption(id?: string): ModelOption | undefined {
   return FALLBACK_MODELS.find((model) => model.id === normalizedId)
 }
 
-function toDirectAnthropicModelId(id: ModelId): DirectModelId {
-  const matched = getFallbackModelOption(id)
-  if (matched) {
-    return matched.directModelId
-  }
-
-  const parsed = parseClaudeModelId(id)
-  if (!parsed) return stripAnthropicProviderPrefix(id)
-
-  const normalizedVersion = parsed.version.replace(".", "-")
-  return `claude-${parsed.family}-${normalizedVersion}`
+export function getModelOption(id?: string): ModelOption | undefined {
+  return getFallbackModelOption(id)
 }
 
 export function resolveGatewayModelId(id?: string): GatewayModelId {
@@ -272,20 +195,13 @@ export function resolveGatewayModelId(id?: string): GatewayModelId {
   }
 
   const normalizedId = normalizeModelId(id)
-  return normalizedId.startsWith("anthropic/")
+  return MODEL_ID_WITH_PROVIDER_PREFIX.test(normalizedId)
     ? normalizedId
     : toGatewayAnthropicModelId(normalizedId)
 }
 
-export function resolveModelId(id?: string): ModelId {
-  if (!id?.trim()) return DEFAULT_FALLBACK_MODEL.directModelId
-
-  const matched = getFallbackModelOption(id)
-  if (matched) {
-    return matched.directModelId
-  }
-
-  return toDirectAnthropicModelId(normalizeModelId(id))
+export function resolveGatewayFallbackModelIds(id?: string): GatewayModelId[] {
+  return getFallbackModelOption(id)?.fallbackGatewayModelIds ?? []
 }
 
 export function supportsReasoningForModel(id?: string): boolean {

@@ -1,7 +1,11 @@
 import { generateText } from "ai"
 import { createClient } from "@/lib/supabase/server"
-import { resolveGatewayModelId, resolveModelId } from "@/lib/models"
-import { resolveAnthropicLanguageModel } from "@/lib/ai-provider"
+import {
+  TITLE_GENERATION_MODEL_ID,
+  resolveGatewayFallbackModelIds,
+  resolveGatewayModelId,
+} from "@/lib/models"
+import { resolveGatewayProviderContext } from "@/lib/ai-provider"
 
 export const maxDuration = 30
 
@@ -40,15 +44,20 @@ export async function POST(req: Request) {
   }
 
   try {
-    const directModelId = resolveModelId("claude-haiku-4-5")
-    const gatewayModelId = resolveGatewayModelId("claude-haiku-4-5")
-    const languageModel = resolveAnthropicLanguageModel({
-      directModelId,
-      gatewayModelId,
+    const providerContext = resolveGatewayProviderContext({
+      gatewayModelId: resolveGatewayModelId(TITLE_GENERATION_MODEL_ID),
+      fallbackGatewayModelIds: resolveGatewayFallbackModelIds(
+        TITLE_GENERATION_MODEL_ID
+      ),
     })
 
     const { text } = await generateText({
-      model: languageModel,
+      model: providerContext.languageModel,
+      providerOptions: providerContext.gatewayProviderOptions
+        ? {
+            gateway: providerContext.gatewayProviderOptions,
+          }
+        : undefined,
       maxOutputTokens: 32,
       system:
         "Generate concise professional chat titles for audit workflows. Return only the title text. Do not use emojis, punctuation at end, quotes, or markdown.",

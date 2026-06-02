@@ -1,26 +1,29 @@
-import { anthropic } from "@ai-sdk/anthropic"
 import { gateway } from "ai"
 
-const AI_PROVIDER_MODES = ["gateway", "direct-anthropic", "fallback"] as const
+const AI_PROVIDER_MODES = ["gateway"] as const
 
 export type AIProviderMode = (typeof AI_PROVIDER_MODES)[number]
-export type ResolvedAIProviderMode = Exclude<AIProviderMode, "fallback">
+export type ResolvedAIProviderMode = AIProviderMode
 
-export type AnthropicModelReference = {
-  directModelId: string
+export type GatewayModelReference = {
   gatewayModelId?: string
+  fallbackGatewayModelIds?: string[]
 }
 
 export type AIProviderAvailability = {
   gatewayConfigured: boolean
-  anthropicConfigured: boolean
 }
 
-export type ResolvedAnthropicProviderContext = {
-  languageModel: ReturnType<typeof gateway> | ReturnType<typeof anthropic>
+export type GatewayRoutingOptions = {
+  models?: string[]
+}
+
+export type ResolvedGatewayProviderContext = {
+  languageModel: ReturnType<typeof gateway>
   configuredProviderMode: AIProviderMode
   resolvedProviderMode: ResolvedAIProviderMode
   availability: AIProviderAvailability
+  gatewayProviderOptions?: GatewayRoutingOptions
 }
 
 function isAIProviderMode(value: string): value is AIProviderMode {
@@ -31,25 +34,26 @@ function hasGatewayApiKey(): boolean {
   return Boolean(process.env.AI_GATEWAY_API_KEY?.trim())
 }
 
-function hasAnthropicApiKey(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY?.trim())
-}
-
-function getGatewayModelId(reference: AnthropicModelReference): string {
+function getGatewayModelId(reference: GatewayModelReference): string {
   const gatewayModelId = reference.gatewayModelId?.trim()
   if (gatewayModelId) {
     return gatewayModelId
   }
 
-  throw new Error(
-    "Gateway mode requires an explicit Gateway model ID. Complete Prompt 2 model normalization before switching VERA_AI_PROVIDER_MODE to gateway."
-  )
+  throw new Error("Gateway mode requires an explicit Gateway model ID.")
+}
+
+function getGatewayFallbackModelIds(
+  reference: GatewayModelReference
+): string[] {
+  return (reference.fallbackGatewayModelIds ?? [])
+    .map((modelId) => modelId.trim())
+    .filter(Boolean)
 }
 
 export function getAIProviderAvailability(): AIProviderAvailability {
   return {
     gatewayConfigured: hasGatewayApiKey(),
-    anthropicConfigured: hasAnthropicApiKey(),
   }
 }
 
@@ -60,75 +64,47 @@ function getAIProviderMode(): AIProviderMode {
     return configuredMode
   }
 
-  return "direct-anthropic"
+  return "gateway"
 }
 
-function resolveAnthropicProviderMode(
-  reference: AnthropicModelReference
+function resolveGatewayProviderMode(
+  reference: GatewayModelReference
 ): ResolvedAIProviderMode {
   const mode = getAIProviderMode()
   const availability = getAIProviderAvailability()
 
-  if (mode === "gateway") {
-    if (!availability.gatewayConfigured) {
-      throw new Error(
-        "VERA_AI_PROVIDER_MODE is set to gateway but AI_GATEWAY_API_KEY is not configured."
-      )
-    }
-
-    getGatewayModelId(reference)
-    return "gateway"
+  if (!availability.gatewayConfigured) {
+    throw new Error(
+      "AI_GATEWAY_API_KEY is not configured. Vera AI now requires Vercel AI Gateway for all model requests."
+    )
   }
 
-  if (mode === "direct-anthropic") {
-    if (!availability.anthropicConfigured) {
-      throw new Error(
-        "VERA_AI_PROVIDER_MODE is set to direct-anthropic but ANTHROPIC_API_KEY is not configured."
-      )
-    }
-
-    return "direct-anthropic"
-  }
-
-  if (availability.gatewayConfigured && reference.gatewayModelId?.trim()) {
-    return "gateway"
-  }
-
-  if (availability.anthropicConfigured) {
-    return "direct-anthropic"
-  }
-
-  throw new Error(
-    "Fallback provider mode could not resolve a usable provider. Configure ANTHROPIC_API_KEY or AI_GATEWAY_API_KEY before enabling migrated routes."
-  )
+  getGatewayModelId(reference)
+  return mode
 }
 
-export function resolveAnthropicLanguageModel(
-  reference: AnthropicModelReference
-) {
-  return resolveAnthropicProviderContext(reference).languageModel
+export function resolveGatewayLanguageModel(reference: GatewayModelReference) {
+  return resolveGatewayProviderContext(reference).languageModel
 }
 
-export function resolveAnthropicProviderContext(
-  reference: AnthropicModelReference
-): ResolvedAnthropicProviderContext {
+export function resolveGatewayProviderContext(
+  reference: GatewayModelReference
+): ResolvedGatewayProviderContext {
   const configuredProviderMode = getAIProviderMode()
   const availability = getAIProviderAvailability()
-  const providerMode = resolveAnthropicProviderMode(reference)
-
-  if (providerMode === "gateway") {
-    return {
-      languageModel: gateway(getGatewayModelId(reference)),
-      configuredProviderMode,
-      resolvedProviderMode: providerMode,
-      availability,
-    }
-  }
+  const providerMode = resolveGatewayProviderMode(reference)
+  const fallbackGatewayModelIds = getGatewayFallbackModelIds(reference)
 
   return {
-    languageModel: anthropic(reference.directModelId),
+    languageModel: gateway(getGatewayModelId(reference)),
     configuredProviderMode,
     resolvedProviderMode: providerMode,
     availability,
+    gatewayProviderOptions:
+      fallbackGatewayModelIds.length > 0
+        ? {
+            models: fallbackGatewayModelIds,
+          }
+        : undefined,
   }
 }

@@ -2,8 +2,11 @@ import { streamText } from "ai"
 import { createClient } from "@/lib/supabase/server"
 import { getAllAgentsForUser } from "@/lib/db/agents"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
-import { resolveGatewayModelId, resolveModelId } from "@/lib/models"
-import { resolveAnthropicLanguageModel } from "@/lib/ai-provider"
+import {
+  resolveGatewayFallbackModelIds,
+  resolveGatewayModelId,
+} from "@/lib/models"
+import { resolveGatewayProviderContext } from "@/lib/ai-provider"
 
 export const maxDuration = 60
 
@@ -61,15 +64,18 @@ export async function POST(req: Request) {
     return new Response("Bad request", { status: 400 })
   }
 
-  const directModelId = resolveModelId(model)
-  const gatewayModelId = resolveGatewayModelId(model)
-  const languageModel = resolveAnthropicLanguageModel({
-    directModelId,
-    gatewayModelId,
+  const providerContext = resolveGatewayProviderContext({
+    gatewayModelId: resolveGatewayModelId(model),
+    fallbackGatewayModelIds: resolveGatewayFallbackModelIds(model),
   })
 
   const result = streamText({
-    model: languageModel,
+    model: providerContext.languageModel,
+    providerOptions: providerContext.gatewayProviderOptions
+      ? {
+          gateway: providerContext.gatewayProviderOptions,
+        }
+      : undefined,
     maxOutputTokens: 8192,
     system: NO_EMOJI_SYSTEM_PROMPT,
     messages,

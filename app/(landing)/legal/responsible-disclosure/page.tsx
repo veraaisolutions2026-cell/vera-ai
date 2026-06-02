@@ -52,8 +52,9 @@ export default function ResponsibleDisclosurePage() {
           <p className="mt-3">The following are explicitly out of scope:</p>
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              Third-party services including Supabase, Anthropic, Stripe, and
-              Vercel infrastructure (report those to the respective vendors)
+              Third-party services including Supabase, Vercel AI Gateway,
+              Stripe, Vercel infrastructure, and underlying model providers such
+              as Anthropic or Google (report those to the respective vendors)
             </li>
             <li>Social engineering attacks targeting Vera AI staff</li>
             <li>Physical security of any facility</li>

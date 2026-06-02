@@ -12,7 +12,7 @@
  * require authentication.
  */
 
-import { test, expect } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ import { test, expect } from "@playwright/test"
  * Navigate to the landing page and wait for the hero demo container to be
  * visible.
  */
-async function gotoLanding(page: Parameters<typeof test>[1]) {
+async function gotoLanding(page: Page) {
   await page.goto("/", { waitUntil: "networkidle" })
 }
 

@@ -45,8 +45,8 @@ export default function TermsOfServicePage() {
             <li>Maintaining the confidentiality of your login credentials.</li>
             <li>All activity that occurs under your account.</li>
             <li>
-              Notifying us immediately at info@veraaisolutions.com.au if you suspect
-              unauthorised access to your account.
+              Notifying us immediately at info@veraaisolutions.com.au if you
+              suspect unauthorised access to your account.
             </li>
           </ul>
           <p className="mt-3">
@@ -216,8 +216,9 @@ export default function TermsOfServicePage() {
           <p className="mt-3">
             We do not use your content to train AI models. AI-generated
             responses produced by the platform in response to your inputs are
-            provided to you under the ownership framework described by
-            Anthropic&apos;s usage policies.
+            provided to you under the ownership framework described by the
+            applicable Vercel AI Gateway and underlying model-provider usage
+            policies.
           </p>
         </section>
 
@@ -263,9 +264,9 @@ export default function TermsOfServicePage() {
             updates, or modify, suspend, or discontinue features with reasonable
             notice where possible. We are not liable for any downtime, data
             loss, or disruption caused by circumstances outside our reasonable
-            control including third-party infrastructure failures from
-            Anthropic, Supabase, Vercel, or Stripe, natural disasters, or
-            network outages.
+            control including third-party infrastructure failures from Vercel AI
+            Gateway, underlying model providers, Supabase, Vercel, or Stripe,
+            natural disasters, or network outages.
           </p>
         </section>
 

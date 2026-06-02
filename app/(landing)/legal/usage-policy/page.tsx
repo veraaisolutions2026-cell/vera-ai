@@ -211,11 +211,11 @@ export default function UsagePolicyPage() {
             5. AI Model Guidelines
           </h2>
           <p className="mb-3">
-            Vera AI uses Claude models provided by Anthropic. All requests are
-            also subject to Anthropic&apos;s usage policies. We pass requests
-            through Anthropic&apos;s API and their content filtering and safety
-            systems apply in addition to ours. We will not assist users in
-            attempting to circumvent Anthropic&apos;s safety measures.
+            Vera AI routes requests through Vercel AI Gateway to supported model
+            providers, including Claude and Gemini model families. All requests
+            remain subject to our platform policies and any applicable
+            underlying provider policies. We will not assist users in attempting
+            to circumvent Gateway or provider safety measures.
           </p>
           <p>
             By using the platform, you acknowledge that AI model outputs may
@@ -245,9 +245,9 @@ export default function UsagePolicyPage() {
             </li>
           </ul>
           <p className="mt-3">
-            You may appeal account actions by contacting info@veraaisolutions.com.au within
-            30 days of the action. We will review appeals in good faith and
-            respond within 10 business days.
+            You may appeal account actions by contacting
+            info@veraaisolutions.com.au within 30 days of the action. We will
+            review appeals in good faith and respond within 10 business days.
           </p>
         </section>
 

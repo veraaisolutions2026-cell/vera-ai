@@ -13,6 +13,7 @@ import {
   ChevronDown,
   CreditCard,
   LayoutDashboard,
+  Layers,
   LogOut,
   Moon,
   PanelLeftClose,
@@ -70,6 +71,7 @@ const navItems: NavItem[] = [
   },
   { href: "/admin/users", label: "Users", icon: Users, exact: false },
   { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
+  { href: "/admin/models", label: "Models", icon: Layers, exact: false },
   { href: "/admin/aca", label: "Agent Creator", icon: Sparkles, exact: false },
   {
     href: "/admin/subscriptions",
@@ -113,6 +115,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/users", label: "Users", icon: Users, exact: false },
       { href: "/admin/agents", label: "Agents", icon: Bot, exact: false },
+      { href: "/admin/models", label: "Models", icon: Layers, exact: false },
       {
         href: "/admin/aca",
         label: "Agent Creator",

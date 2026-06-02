@@ -16,10 +16,10 @@ export default function PrivacyPolicyPage() {
           <p>
             Vera AI Solutions operates the Vera AI platform, an intelligent
             auditing workspace that enables audit professionals to build,
-            configure, and converse with AI agents powered by Anthropic Claude
-            models. This Privacy Policy explains what personal data we collect,
-            why we collect it, how it is processed, and what rights you have
-            over it.
+            configure, and converse with AI agents powered by Claude and Gemini
+            models routed through Vercel AI Gateway. This Privacy Policy
+            explains what personal data we collect, why we collect it, how it is
+            processed, and what rights you have over it.
           </p>
           <p className="mt-3">
             By creating an account or using any part of the Vera AI platform,
@@ -131,8 +131,9 @@ export default function PrivacyPolicyPage() {
               AI-generated responses to your messages.
             </li>
             <li>
-              To send your uploaded files to Anthropic Claude via the Anthropic
-              API to generate contextually relevant responses.
+              To send your uploaded files and prompts through Vercel AI Gateway
+              to the selected model provider so we can generate contextually
+              relevant responses.
             </li>
             <li>
               To enforce plan-based request limits and calculate billing through
@@ -172,11 +173,15 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul className="list-disc space-y-3 pl-5">
             <li>
-              <span className="font-medium text-foreground">Anthropic</span> -
-              Your messages, uploaded document content, and agent system prompts
-              are transmitted to Anthropic&apos;s API to generate AI responses.
-              Anthropic&apos;s privacy policy governs how they process that
-              data. We transmit only what is necessary to fulfil your request.
+              <span className="font-medium text-foreground">
+                Vercel AI Gateway and model providers
+              </span>{" "}
+              - Your messages, uploaded document content, and agent system
+              prompts are transmitted through Vercel AI Gateway to supported
+              model providers, including Anthropic and Google, to generate AI
+              responses. Applicable provider privacy terms govern how those
+              providers process routed request data. We transmit only what is
+              necessary to fulfil your request.
             </li>
             <li>
               <span className="font-medium text-foreground">Supabase</span> - We
@@ -226,7 +231,7 @@ export default function PrivacyPolicyPage() {
               ensuring that users can only access their own data.
             </li>
             <li>
-              Anthropic API keys, Supabase service-role keys, and Stripe secret
+              AI Gateway API keys, Supabase service-role keys, and Stripe secret
               keys are stored only in server-side environment variables and are
               never exposed to client-side code or browser environments.
             </li>

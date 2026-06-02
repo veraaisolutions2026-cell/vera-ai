@@ -42,8 +42,8 @@ type BuildAIUsageMetadataInput = {
   availability: AIProviderAvailability
   inputModelId?: string | null
   canonicalModelId: string
-  directModelId: string
-  gatewayModelId?: string | null
+  gatewayModelId: string
+  fallbackGatewayModelIds?: string[] | null
   timing: AIRequestTimingSnapshot
 }
 
@@ -53,8 +53,8 @@ export function buildAIUsageMetadata({
   availability,
   inputModelId = null,
   canonicalModelId,
-  directModelId,
-  gatewayModelId = null,
+  gatewayModelId,
+  fallbackGatewayModelIds = null,
   timing,
 }: BuildAIUsageMetadataInput): Json {
   const metadata = {
@@ -62,13 +62,12 @@ export function buildAIUsageMetadata({
       configuredProviderMode,
       resolvedProviderMode,
       gatewayConfigured: availability.gatewayConfigured,
-      anthropicConfigured: availability.anthropicConfigured,
     },
     model: {
       inputModelId,
       canonicalModelId,
-      directModelId,
       gatewayModelId,
+      fallbackGatewayModelIds,
     },
     timings: {
       firstTokenMs: timing.firstTokenMs,

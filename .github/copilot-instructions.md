@@ -16,8 +16,8 @@ Vera AI is an **auditing software solution** delivered as two separate products 
 | Framework            | Next.js 15+ (App Router, RSC-first)                                                                                                                   |
 | Language             | TypeScript (strict mode)                                                                                                                              |
 | Database & Auth      | Supabase (PostgreSQL + Supabase Auth) - use `@supabase/ssr`, **not** `auth-helpers`                                                                   |
-| AI Runtime           | AI SDK 5 - `useChat` with modular transports, decoupled Zustand-compatible state, automatic tool input streaming                                      |
-| AI Provider          | `@ai-sdk/anthropic` for Claude streaming; `@anthropic-ai/sdk` raw client for Files API (PDF/Word upload)                                              |
+| AI Runtime           | AI SDK 6 - `useChat` with modular transports, decoupled Zustand-compatible state, automatic tool input streaming                                      |
+| AI Provider          | Vercel AI Gateway via the `ai` package, with Claude primary models and Gemini fallbacks                                                               |
 | AI UI Components     | shadcn/ui AI components (`shadcn.io/ai`): `Message`, `Conversation`, `ToolCall`, `ReasoningBlock` - pass `message.parts` for automatic part rendering |
 | Animation Engine     | Motion (Framer Motion v12) - subtle, purposeful micro-interactions only                                                                               |
 | Animation Primitives | Motion Primitives - text character reveals, animated numbers, pre-built patterns                                                                      |
@@ -104,13 +104,13 @@ Route group: `app/(dashboard)/`
 
 ### Features to build
 
-- **Streaming chat** - real-time via Anthropic Claude API, conversation history, multi-turn context
+- **Streaming chat** - real-time via Vercel AI Gateway + AI SDK, conversation history, multi-turn context
 - **Agent Builder** - create, edit, clone, delete agents; set name, icon, system prompt, output format
 - **Authentication** - login, register, password reset via Supabase Auth
 - **User Roles** - Admin (full access + billing), User (chat + agents), Viewer (read-only)
 - **File Upload** - PDF and Word documents in a chat session
 - **Export** - conversations as PDF, Markdown, plain text
-- **Model Selector** - switch between Claude models (Sonnet, Haiku, Opus) per session
+- **Model Selector** - switch between Vera Mini / Vera Pro / Vera Max tiers per session
 - **Stripe Billing** - subscription management, plan gating by role
 
 ### Routes
@@ -186,7 +186,7 @@ Route group: `app/(marketing)/`
 - Use `createServerClient` from `@supabase/ssr` for server-side, `createBrowserClient` for client
 - Validate all form inputs with Zod before any DB write
 - Stripe webhooks must verify `stripe-signature` header before processing
-- Anthropic API calls are server-only - never call from client components
+- AI Gateway model calls are server-only - never call from client components
 - Row Level Security (RLS) must be enabled on all Supabase tables
 - Role gating happens server-side - never rely on client-side role checks alone
 
@@ -216,7 +216,7 @@ Route group: `app/(marketing)/`
 - Do not add `baseUrl` to `tsconfig.json` - use `paths` directly (TypeScript 5+ feature)
 - Do not use `@supabase/auth-helpers-nextjs` - use `@supabase/ssr` only
 - Do not import AI SDK v4 patterns for `useChat` - AI SDK 5 has a different API; always check `ai` package docs
-- Do not put Anthropic/Supabase/Stripe secret keys in client-accessible code
+- Do not put AI Gateway, Supabase, or Stripe secret keys in client-accessible code
 - Do not skip Zod validation on any user-facing form or API route input
 - Do not use `router.push` for server-side navigation - use `redirect()` from `next/navigation`
 
@@ -230,8 +230,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=         # server only
 
-# Anthropic
-ANTHROPIC_API_KEY=                 # server only
+# Vercel AI Gateway
+AI_GATEWAY_API_KEY=                # server only
 
 # Stripe
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=

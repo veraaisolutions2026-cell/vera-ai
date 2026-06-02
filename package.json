@@ -21,7 +21,6 @@
     "db:refresh-types": "pnpm update-types"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.68",
     "@ai-sdk/react": "^3.0.159",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@react-pdf/renderer": "^4.4.0",

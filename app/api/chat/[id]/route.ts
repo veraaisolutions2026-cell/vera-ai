@@ -10,7 +10,7 @@ import {
   wrapLanguageModel,
   type UIMessage,
 } from "ai"
-import { resolveAnthropicProviderContext } from "@/lib/ai-provider"
+import { resolveGatewayProviderContext } from "@/lib/ai-provider"
 import {
   buildAIUsageMetadata,
   createAIRequestTimingTracker,
@@ -27,8 +27,8 @@ import { getChat } from "@/lib/db/chats"
 import { createMessage } from "@/lib/db/messages"
 import {
   normalizeModelId,
+  resolveGatewayFallbackModelIds,
   resolveGatewayModelId,
-  resolveModelId,
   supportsReasoningForModel,
 } from "@/lib/models"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -461,8 +461,8 @@ export async function POST(
 
   let generationMessages = requestMessages
   if (isRegenerationRequest && lastUserIndex >= 0) {
-    // Anthropic rejects assistant-prefill tails; regeneration must end on the
-    // last user turn before generating a replacement assistant response.
+    // Upstream chat models reject assistant-prefill tails, so regeneration
+    // must end on the last user turn before generating a replacement response.
     generationMessages = requestMessages.slice(0, lastUserIndex + 1)
   }
 
@@ -741,13 +741,13 @@ export async function POST(
   }
 
   const canonicalModelId = normalizeModelId(chat.model)
-  const resolvedModelId = resolveModelId(chat.model)
   const gatewayModelId = resolveGatewayModelId(chat.model)
-  const reasoningEnabledForModel = supportsReasoningForModel(resolvedModelId)
+  const fallbackGatewayModelIds = resolveGatewayFallbackModelIds(chat.model)
+  const reasoningEnabledForModel = supportsReasoningForModel(canonicalModelId)
   const usageEventKey = crypto.randomUUID()
-  const providerContext = resolveAnthropicProviderContext({
-    directModelId: resolvedModelId,
+  const providerContext = resolveGatewayProviderContext({
     gatewayModelId,
+    fallbackGatewayModelIds,
   })
   const timingTracker = createAIRequestTimingTracker()
 
@@ -783,9 +783,27 @@ export async function POST(
     isTemporaryChat,
     sourceChatId: chat.id,
   })
+  const providerOptions =
+    providerContext.gatewayProviderOptions || reasoningEnabledForModel
+      ? {
+          ...(providerContext.gatewayProviderOptions
+            ? {
+                gateway: providerContext.gatewayProviderOptions,
+              }
+            : {}),
+          ...(reasoningEnabledForModel
+            ? {
+                anthropic: {
+                  thinking: { type: "adaptive" },
+                },
+              }
+            : {}),
+        }
+      : undefined
 
   const result = streamText({
-    // Anthropic can return transient overload responses; retry to keep UX stable.
+    // Gateway-routed providers can return transient overload responses; retry
+    // to keep UX stable.
     maxRetries: 4,
     abortSignal: req.signal,
     model: AI_DEVTOOLS_ENABLED
@@ -803,13 +821,7 @@ export async function POST(
     onChunk: ({ chunk }) => {
       timingTracker.observeChunk(chunk.type)
     },
-    providerOptions: reasoningEnabledForModel
-      ? {
-          anthropic: {
-            thinking: { type: "adaptive" },
-          },
-        }
-      : undefined,
+    providerOptions,
   })
 
   return result.toUIMessageStreamResponse({
@@ -834,8 +846,8 @@ export async function POST(
         availability: providerContext.availability,
         inputModelId: chat.model ?? null,
         canonicalModelId,
-        directModelId: resolvedModelId,
         gatewayModelId,
+        fallbackGatewayModelIds,
         timing,
       })
 
@@ -848,7 +860,7 @@ export async function POST(
           chatId: chat.id,
           turnKey: resolvedTurnKey,
           source: "chat",
-          model: resolvedModelId,
+          model: canonicalModelId,
           requestTrigger,
           userMessageChars: lastUserText.length,
           assistantMessageChars: lastAssistantText.length,

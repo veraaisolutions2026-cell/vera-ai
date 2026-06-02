@@ -32,7 +32,7 @@ export function AgentForm({ agent, mode, initialLayers }: Props) {
   const [description, setDescription] = useState(agent?.description ?? "")
   const [systemPrompt, setSystemPrompt] = useState(agent?.system_prompt ?? "")
   const [baseModel, setBaseModel] = useState(
-    agent?.base_model ?? "claude-sonnet-4-6"
+    agent?.base_model ?? "claude-sonnet-4.6"
   )
   const [category, setCategory] = useState(agent?.category ?? "")
   const [allowCoach, setAllowCoach] = useState(initialLayers.includes("coach"))
