@@ -214,7 +214,9 @@ export function ChatHeader({
 
   return (
     <div className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
-      {agentBar ? <div className="mb-2 flex justify-start">{agentBar}</div> : null}
+      {agentBar ? (
+        <div className="mb-2 flex justify-start">{agentBar}</div>
+      ) : null}
 
       <div className="flex items-center justify-between gap-3">
         <div className="max-w-[58vw] overflow-hidden sm:max-w-xs">
