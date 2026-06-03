@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS public.knowledge_base_files (
   size_bytes bigint NOT NULL CHECK (size_bytes > 0),
   bucket text NOT NULL DEFAULT 'knowledge-base-files',
   storage_path text NOT NULL UNIQUE,
+  summary_text text,
+  summary_model text,
+  summary_generated_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT knowledge_base_files_owner_scope_check CHECK (

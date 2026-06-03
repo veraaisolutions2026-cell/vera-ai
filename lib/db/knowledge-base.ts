@@ -27,6 +27,12 @@ export type CreateKnowledgeBaseFileInput = {
   ownerUserId?: string | null
 }
 
+export type KnowledgeBaseFileSummaryInput = {
+  fileId: string
+  summaryText: string
+  summaryModel: string
+}
+
 async function getActorContext(userId: string): Promise<ActorContext> {
   const service = createServiceClient()
   const { data, error } = await service
@@ -290,6 +296,25 @@ export async function unlinkKnowledgeBaseFileFromAgent(
     .delete()
     .eq("agent_id", params.agentId)
     .eq("file_id", params.fileId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+export async function updateKnowledgeBaseFileSummary(
+  input: KnowledgeBaseFileSummaryInput
+): Promise<void> {
+  const service = createServiceClient()
+
+  const { error } = await service
+    .from("knowledge_base_files")
+    .update({
+      summary_text: input.summaryText,
+      summary_model: input.summaryModel,
+      summary_generated_at: new Date().toISOString(),
+    })
+    .eq("id", input.fileId)
 
   if (error) {
     throw new Error(error.message)

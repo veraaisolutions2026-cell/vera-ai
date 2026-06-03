@@ -17,6 +17,7 @@
     "db:apply": "node scripts/run-linked-sql.mjs",
     "db:apply:billing-plan-v2": "pnpm db:apply db/billing-plan-v2.sql",
     "db:apply:knowledge-base-phase2": "pnpm db:apply db/knowledge-base-phase2.sql",
+    "db:backfill:knowledge-base-summaries": "node scripts/backfill-kb-summaries.mjs",
     "db:apply-and-types": "pnpm db:apply && pnpm update-types",
     "db:refresh-types": "pnpm update-types"
   },

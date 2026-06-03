@@ -6,6 +6,9 @@ import {
 } from "@/lib/db/knowledge-base"
 import { getUserLayerAccess } from "@/lib/db/layer-access"
 import { recordKnowledgeBaseAuditEvent } from "@/lib/db/usage-events"
+import { ensureKnowledgeBaseSummary } from "@/lib/knowledge-base-summaries"
+
+export const maxDuration = 300
 
 const MAX_FILE_SIZE = 40 * 1024 * 1024
 
@@ -123,6 +126,8 @@ export async function POST(
         linkedVia: "upload",
       },
     })
+
+    await ensureKnowledgeBaseSummary(created).catch(() => null)
 
     return NextResponse.json({
       fileId: created.id,

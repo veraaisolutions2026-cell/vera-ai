@@ -39,8 +39,17 @@ import { buildChatMemoryPromptContext } from "@/lib/chat-memory-context"
 import { temporaryChatStateSchema } from "@/lib/memory-contract"
 import { createMemoryToolSet } from "@/lib/memory-service"
 import type { Json } from "@/types/supabase"
+import {
+  buildKnowledgeBaseContextParts,
+  trimMessagesToTokenBudget,
+} from "@/lib/knowledge-base-summaries"
 
-export const maxDuration = 60
+// Agent-backed chats can include linked knowledge-base files and longer
+// streamed reasoning paths. Keep the route alive beyond Vercel's 60s default
+// so the connection does not drop mid-response for slower but valid turns.
+export const maxDuration = 300
+
+const MAX_MODEL_INPUT_TOKENS = 90_000
 
 const STREAM_RESPONSE_HEADERS = {
   "Transfer-Encoding": "chunked",
@@ -250,6 +259,10 @@ async function prepareMessagesForModel(
               ]
             }
 
+            if (metadata.source === "knowledge-base" && part.url) {
+              return [part]
+            }
+
             const { data } = await storageClient.storage
               .from(metadata.bucket ?? CHAT_ATTACHMENTS_BUCKET)
               .createSignedUrl(metadata.storagePath, 60 * 60)
@@ -286,7 +299,7 @@ async function buildAgentKnowledgeBaseFileParts(
 
   const filesResult = await storageClient
     .from("knowledge_base_files")
-    .select("id, name, mime_type, bucket, storage_path, size_bytes")
+    .select("*")
     .in("id", fileIds)
     .eq("mime_type", "application/pdf")
 
@@ -294,37 +307,7 @@ async function buildAgentKnowledgeBaseFileParts(
     return []
   }
 
-  const parts = await Promise.all(
-    filesResult.data.map(
-      async (file): Promise<UIMessage["parts"][number] | null> => {
-        const signed = await storageClient.storage
-          .from(file.bucket)
-          .createSignedUrl(file.storage_path, 60 * 60)
-
-        if (!signed.data?.signedUrl) return null
-
-        return {
-          type: "file",
-          filename: file.name,
-          mediaType: file.mime_type,
-          url: signed.data.signedUrl,
-          providerMetadata: {
-            vera: {
-              attachmentType: "pdf",
-              storagePath: file.storage_path,
-              bucket: file.bucket,
-              size: file.size_bytes,
-              source: "knowledge-base",
-            },
-          },
-        }
-      }
-    )
-  )
-
-  return parts.filter(
-    (part): part is UIMessage["parts"][number] => part !== null
-  )
+  return buildKnowledgeBaseContextParts(filesResult.data)
 }
 
 function appendPartsToLastUserMessage(
@@ -816,7 +799,10 @@ export async function POST(
     stopWhen: stepCountIs(4),
     tools: memoryTools,
     messages: await convertToModelMessages(
-      await prepareMessagesForModel(modelInputMessages, bookkeepingSupabase)
+      trimMessagesToTokenBudget(
+        await prepareMessagesForModel(modelInputMessages, bookkeepingSupabase),
+        MAX_MODEL_INPUT_TOKENS
+      )
     ),
     onChunk: ({ chunk }) => {
       timingTracker.observeChunk(chunk.type)

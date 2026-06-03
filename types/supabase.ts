@@ -245,6 +245,9 @@ export type Database = {
           mime_type: string
           name: string
           owner_user_id: string | null
+          summary_generated_at: string | null
+          summary_model: string | null
+          summary_text: string | null
           scope: Database["public"]["Enums"]["kb_file_scope"]
           size_bytes: number
           storage_path: string
@@ -259,6 +262,9 @@ export type Database = {
           mime_type: string
           name: string
           owner_user_id?: string | null
+          summary_generated_at?: string | null
+          summary_model?: string | null
+          summary_text?: string | null
           scope?: Database["public"]["Enums"]["kb_file_scope"]
           size_bytes: number
           storage_path: string
@@ -273,6 +279,9 @@ export type Database = {
           mime_type?: string
           name?: string
           owner_user_id?: string | null
+          summary_generated_at?: string | null
+          summary_model?: string | null
+          summary_text?: string | null
           scope?: Database["public"]["Enums"]["kb_file_scope"]
           size_bytes?: number
           storage_path?: string
