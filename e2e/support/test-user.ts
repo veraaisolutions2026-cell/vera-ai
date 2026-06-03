@@ -6,8 +6,7 @@ import { loadLocalEnvFiles } from "./env"
 loadLocalEnvFiles()
 
 const generatedPassword =
-  process.env.PLAYWRIGHT_TEST_PASSWORD?.trim() ||
-  `VeraPlaywright-${crypto.randomUUID()}-Aa1!`
+  process.env.PLAYWRIGHT_TEST_PASSWORD?.trim() || "VeraPlaywright-E2E-Aa1!"
 
 const testUserEmail =
   process.env.PLAYWRIGHT_TEST_EMAIL?.trim() || DEFAULT_E2E_USER_EMAIL

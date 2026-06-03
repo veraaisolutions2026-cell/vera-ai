@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Download, FileCode2, FileText, Loader2 } from "lucide-react"
 import {
@@ -20,6 +20,7 @@ type Props = {
   chatId: string
   initialTitle: string
   messages: ChatHeaderMessage[]
+  agentBar?: ReactNode
 }
 
 const FORMATS = [
@@ -80,7 +81,12 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ChatHeader({ chatId, initialTitle, messages }: Props) {
+export function ChatHeader({
+  chatId,
+  initialTitle,
+  messages,
+  agentBar,
+}: Props) {
   const [isClientReady, setIsClientReady] = useState(false)
   const [exporting, setExporting] = useState<string | null>(null)
   const [title, setTitle] = useState<string>("Untitled")
@@ -207,77 +213,71 @@ export function ChatHeader({ chatId, initialTitle, messages }: Props) {
   }
 
   return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-      <div className="max-w-[58vw] overflow-hidden sm:max-w-xs">
-        {isTitleLoading ? (
-          <div className="h-4 w-36 animate-pulse rounded bg-muted" />
-        ) : (
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.h1
-              key={title || "Untitled"}
-              data-testid="chat-title"
-              className="truncate text-sm font-medium text-foreground"
-              initial={{ opacity: 0, y: 5, filter: "blur(4px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -5, filter: "blur(4px)" }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-            >
-              {title || "Untitled"}
-            </motion.h1>
-          </AnimatePresence>
-        )}
-      </div>
+    <div className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
+      {agentBar ? <div className="mb-2 flex justify-start">{agentBar}</div> : null}
 
-      {isClientReady ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              disabled={!messages.length}
-              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground ring-1 ring-border transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-muted data-[state=open]:text-foreground sm:h-8"
-              aria-label="Export conversation"
-            >
-              {exporting ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              Export
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 sm:w-44">
-            {FORMATS.map((format) => {
-              const Icon = format.icon
-              const isLoading = exporting === format.id
-              return (
-                <DropdownMenuItem
-                  key={format.id}
-                  disabled={Boolean(exporting)}
-                  onClick={() => void handleExport(format.id)}
-                  className="flex items-center gap-2 py-2 text-sm sm:py-1.5"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Icon className="h-3.5 w-3.5" />
-                  )}
-                  <span>{format.label}</span>
-                </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : (
-        <button
-          type="button"
-          disabled
-          className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground opacity-50 ring-1 ring-border sm:h-8"
-          aria-label="Export conversation"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Export
-        </button>
-      )}
+      <div className="flex items-center justify-between gap-3">
+        <div className="max-w-[58vw] overflow-hidden sm:max-w-xs">
+          {isTitleLoading ? (
+            <div className="h-4 w-36 animate-pulse rounded bg-muted" />
+          ) : (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.h1
+                key={title || "Untitled"}
+                data-testid="chat-title"
+                className="truncate text-sm font-medium text-foreground"
+                initial={{ opacity: 0, y: 5, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -5, filter: "blur(4px)" }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+              >
+                {title || "Untitled"}
+              </motion.h1>
+            </AnimatePresence>
+          )}
+        </div>
+
+        {isClientReady ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={!messages.length}
+                className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground ring-1 ring-border transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 data-[state=open]:bg-muted data-[state=open]:text-foreground sm:h-8"
+                aria-label="Export conversation"
+              >
+                {exporting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Export
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 sm:w-44">
+              {FORMATS.map((format) => {
+                const Icon = format.icon
+                const isLoading = exporting === format.id
+                return (
+                  <DropdownMenuItem
+                    key={format.id}
+                    disabled={Boolean(exporting)}
+                    onClick={() => void handleExport(format.id)}
+                    className="flex items-center gap-2 py-2 text-sm sm:py-1.5"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5" />
+                    )}
+                    <span>{format.label}</span>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     </div>
   )
 }
