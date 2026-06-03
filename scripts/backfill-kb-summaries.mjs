@@ -1,24 +1,24 @@
-import fs from 'node:fs'
-import process from 'node:process'
-import { createClient } from '@supabase/supabase-js'
-import { generateText, gateway } from 'ai'
+import fs from "node:fs"
+import process from "node:process"
+import { createClient } from "@supabase/supabase-js"
+import { generateText, gateway } from "ai"
 
 const LARGE_FILE_THRESHOLD_BYTES = 512 * 1024
 const MAX_SUMMARY_OUTPUT_TOKENS = 1800
 const MAX_SUMMARY_CHARS = 12_000
-const SUMMARY_MODEL_ID = 'claude-sonnet-4.6'
-const SUMMARY_GATEWAY_MODEL_ID = 'anthropic/claude-sonnet-4.6'
-const SUMMARY_FALLBACK_MODELS = ['google/gemini-3.5-flash']
+const SUMMARY_MODEL_ID = "claude-sonnet-4.6"
+const SUMMARY_GATEWAY_MODEL_ID = "anthropic/claude-sonnet-4.6"
+const SUMMARY_FALLBACK_MODELS = ["google/gemini-3.5-flash"]
 
 function loadEnvFiles() {
-  for (const file of ['.env.local', '.env']) {
+  for (const file of [".env.local", ".env"]) {
     if (!fs.existsSync(file)) continue
 
-    for (const rawLine of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    for (const rawLine of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
       const line = rawLine.trim()
-      if (!line || line.startsWith('#')) continue
+      if (!line || line.startsWith("#")) continue
 
-      const eq = line.indexOf('=')
+      const eq = line.indexOf("=")
       if (eq === -1) continue
 
       const key = line.slice(0, eq).trim()
@@ -48,21 +48,21 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
 
-    if (arg === '--linked-only') {
+    if (arg === "--linked-only") {
       options.linkedOnly = true
       continue
     }
 
-    if (arg === '--dry-run') {
+    if (arg === "--dry-run") {
       options.dryRun = true
       continue
     }
 
-    if (arg === '--limit') {
+    if (arg === "--limit") {
       const value = argv[i + 1]
-      const parsed = Number.parseInt(value ?? '', 10)
+      const parsed = Number.parseInt(value ?? "", 10)
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new Error('Expected a positive integer after --limit')
+        throw new Error("Expected a positive integer after --limit")
       }
 
       options.limit = parsed
@@ -82,11 +82,11 @@ function getSupabaseConfig() {
   const gatewayApiKey = process.env.AI_GATEWAY_API_KEY?.trim()
 
   if (!url || !serviceKey) {
-    throw new Error('Missing Supabase service credentials in environment')
+    throw new Error("Missing Supabase service credentials in environment")
   }
 
   if (!gatewayApiKey) {
-    throw new Error('Missing AI_GATEWAY_API_KEY in environment')
+    throw new Error("Missing AI_GATEWAY_API_KEY in environment")
   }
 
   return { url, serviceKey }
@@ -104,7 +104,7 @@ function createSupabase() {
 }
 
 function trimSummary(text) {
-  const normalized = text.trim().replace(/\n{3,}/g, '\n\n')
+  const normalized = text.trim().replace(/\n{3,}/g, "\n\n")
   if (normalized.length <= MAX_SUMMARY_CHARS) {
     return normalized
   }
@@ -114,30 +114,34 @@ function trimSummary(text) {
 
 function sortFilesForBackfill(files) {
   return [...files].sort((left, right) => {
-    const linkedDelta = Number(right.link_status === 'linked-to-agent') - Number(left.link_status === 'linked-to-agent')
+    const linkedDelta =
+      Number(right.link_status === "linked-to-agent") -
+      Number(left.link_status === "linked-to-agent")
     if (linkedDelta !== 0) return linkedDelta
 
     const sizeDelta = right.size_bytes - left.size_bytes
     if (sizeDelta !== 0) return sizeDelta
 
-    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    return (
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    )
   })
 }
 
 async function listTargetFiles(supabase, options) {
   const { data, error } = await supabase
-    .from('knowledge_base_files')
-    .select('*')
-    .eq('mime_type', 'application/pdf')
-    .gte('size_bytes', LARGE_FILE_THRESHOLD_BYTES)
-    .order('created_at', { ascending: false })
+    .from("knowledge_base_files")
+    .select("*")
+    .eq("mime_type", "application/pdf")
+    .gte("size_bytes", LARGE_FILE_THRESHOLD_BYTES)
+    .order("created_at", { ascending: false })
 
   if (error) {
     throw error
   }
 
   const filtered = (data ?? []).filter((file) => {
-    if (options.linkedOnly && file.link_status !== 'linked-to-agent') {
+    if (options.linkedOnly && file.link_status !== "linked-to-agent") {
       return false
     }
 
@@ -172,17 +176,17 @@ async function generateSummaryForFile(file, signedUrl) {
     timeout: 120_000,
     maxOutputTokens: MAX_SUMMARY_OUTPUT_TOKENS,
     system:
-      'You summarise audit knowledge-base documents for downstream agent use. Be concise, faithful, and specific. Do not invent facts or use filler.',
+      "You summarise audit knowledge-base documents for downstream agent use. Be concise, faithful, and specific. Do not invent facts or use filler.",
     messages: [
       {
-        role: 'user',
+        role: "user",
         content: [
           {
-            type: 'text',
+            type: "text",
             text: `Summarise the attached document "${file.name}" for later agent reasoning. Produce a compact but information-dense briefing with these sections: Overview, Key Topics, Important Definitions, Notable Rules or Exceptions, Search Terms, and Likely Question Areas. Keep the response under 1,200 words.`,
           },
           {
-            type: 'file',
+            type: "file",
             mediaType: file.mime_type,
             filename: file.name,
             data: signedUrl,
@@ -197,13 +201,13 @@ async function generateSummaryForFile(file, signedUrl) {
 
 async function persistSummary(supabase, fileId, summaryText) {
   const { error } = await supabase
-    .from('knowledge_base_files')
+    .from("knowledge_base_files")
     .update({
       summary_text: summaryText,
       summary_model: SUMMARY_MODEL_ID,
       summary_generated_at: new Date().toISOString(),
     })
-    .eq('id', fileId)
+    .eq("id", fileId)
 
   if (error) {
     throw error
@@ -219,7 +223,7 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        phase: 'discover',
+        phase: "discover",
         candidates: files.length,
         linkedOnly: options.linkedOnly,
         dryRun: options.dryRun,
@@ -243,7 +247,7 @@ async function main() {
       const summary = await generateSummaryForFile(file, signedUrl)
 
       if (!summary) {
-        throw new Error('Empty summary generated')
+        throw new Error("Empty summary generated")
       }
 
       await persistSummary(supabase, file.id, summary)
@@ -252,7 +256,7 @@ async function main() {
       console.log(
         JSON.stringify(
           {
-            phase: 'backfill',
+            phase: "backfill",
             position: index + 1,
             total: files.length,
             fileId: file.id,
@@ -276,7 +280,7 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        phase: 'complete',
+        phase: "complete",
         attempted: files.length,
         succeeded: successCount,
         failed: failures.length,
@@ -296,7 +300,7 @@ main().catch((error) => {
   console.error(
     JSON.stringify(
       {
-        phase: 'fatal',
+        phase: "fatal",
         error: error instanceof Error ? error.message : String(error),
       },
       null,
